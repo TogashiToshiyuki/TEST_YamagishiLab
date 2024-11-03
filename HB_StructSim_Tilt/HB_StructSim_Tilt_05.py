@@ -1656,6 +1656,12 @@ def execute(command_list, TEXT, directory=None):
 
 
 def mkXYZfile(tcalpath, Debug):
+    """
+    Make the XYZ file
+    :param tcalpath:
+    :param Debug:
+    :return:
+    """
     F_paths = glob.glob(f"{tcalpath}/*.com")
     print(f"\n"
           f"**********\n"
