@@ -1697,6 +1697,11 @@ def mkXYZfile(tcalpath, Debug):
 
 
 def process_file(F_path):
+    """
+    Process the file
+    :param F_path:
+    :return:
+    """
     with open(F_path, "r") as f:
         lines = f.readlines()
     new_lines = [
