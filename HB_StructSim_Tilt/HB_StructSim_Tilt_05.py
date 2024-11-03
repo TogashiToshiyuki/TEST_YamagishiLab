@@ -188,10 +188,13 @@ def main():
     Calculate_tcal(calculation_tcal_Flag, tcal_path, MaterName, Nmol, mol_pos,
                    Formated_Tilt, Debug, messages, HelpList)
 
+    # Save the results
+    Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList)
+
+    # End of the program
     print(f"{Color.GREEN}\n"
           f"************************* ALL PROCESSES END *************************"
           f"{Color.RESET}\n")
-
     return
 
 
@@ -725,10 +728,7 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
               f"\t>>> {Color.GREEN}Local minimum values were successfully found "
               f"at '{len(MinConditions)}' angles.{Color.RESET}\n"
               f"\n"
-              f"\t>>> Com files for minimum energies were copied into {tcalpath} folder\n"
-              f"\n"
-              f"**********\n"
-              f"Making XYZ files...\n")
+              f"\t>>> Com files for minimum energies were copied into {tcalpath} folder\n")
         mkXYZfile(tcalpath, Debug)
     return
 
@@ -1126,11 +1126,12 @@ def job_submission(messages, HelpList, qsubList, dirpath, Nmol, which):
     :return:
     """
     if len(qsubList) == 0:
-        messages.append(f"\t>>> {Color.GREEN}Job was not submitted.{Color.RESET}\n"
-                        f"\t>>> Calculations with the conditions might be finished.")
+        messages.append(f"\t>>> Job was not submitted.\n"
+                        f"\t>>> {Color.GREEN}Calculations with the conditions might be finished.{Color.RESET}")
         help_check_exit(messages, HelpList)
     else:
         for qsub in qsubList:
+            qsub = qsub.split()
             subprocess.run(qsub, cwd=f"./{dirpath}")
 
         if "2mol" in Nmol:
@@ -1333,7 +1334,10 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                             print(f"{Color.RED}Error: {Log} did not finish normally.{Color.RESET}")
 
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "a") as error_log:
-                                error_log.write(f"{Log.split("/")[-1].split(".")[0].split("_")[-1]}\n")
+                                Log = Log.split("/")[-1]
+                                Log = Log.split(".")[0]
+                                Log = Log.split("_")[-1]
+                                error_log.write(f"{Log}\n")
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "r") as error_log:
                                 error_lines = error_log.readlines()
                             error_lines = list(set(error_lines))
@@ -1544,7 +1548,8 @@ def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos, MaterN
     for RefLine in RefLines:
         Contents = RefLine.strip().split()
         Degs.append(round(float(Contents[0]), 1))
-    print("\nNew conditions for the next cycle:")
+    print("\nCreating new conditions for the next cycle...")
+    print("\tNew conditions for the next cycle:")
     for Deg in Degs:
         ValueList = []
         RefValues = getRefValues(Deg, RefLines)
@@ -1653,6 +1658,9 @@ def execute(command_list, TEXT, directory=None):
 
 def mkXYZfile(tcalpath, Debug):
     F_paths = glob.glob(f"{tcalpath}/*.com")
+    print(f"\n"
+          f"**********\n"
+          f"Making XYZ files...")
     if not F_paths:
         print(f"\t>>> There is NO .com file in the {tcalpath} folder.")
         return
@@ -1661,7 +1669,7 @@ def mkXYZfile(tcalpath, Debug):
     for F_path in F_paths:
         process_file(F_path)
 
-    print(f"Converting .com files to .xyz...\n")
+    print(f"\tConverting .com files to .xyz...")
 
     ComFileNames = glob.glob(f"{tcalpath}/*.com")
     XYZFileNameList = []
@@ -1702,10 +1710,10 @@ def process_file(F_path):
 def Calculate_tcal(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
                    Formated_Tilt, Debug, messages, HelpList):
     if calculation_tcal_flag:
+        print(f"\n**********\n"
+              f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
         if not os.path.exists(f"./{tcal_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal.log"):
             qsubList = []
-            print(f"**********\n"
-                  f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
             XYZs = glob.glob(f"{tcal_path}/*.xyz")
             for XYZ in XYZs:
                 if "_m1.xyz" in XYZ or "_m2.xyz" in XYZ or "-12.xyz" in XYZ or "-23.xyz" in XYZ or "-31.xyz" in XYZ:
@@ -1948,7 +1956,7 @@ def ReadCube(tcal_path, Cubefile):
 
 def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList):
     result_name = f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d"
-    print(f"\n**********\n{Color.GREEN} Resulting Data Set for {result_name}...{Color.RESET}\n")
+    print(f"\n**********\n{Color.GREEN} Resulting Data Set for {result_name}...{Color.RESET}")
 
     result_path = f"{result_name}_result"
     os.makedirs(result_path, exist_ok=True)
@@ -1991,10 +1999,11 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
         print("\t>>> Any file for aggregation structure is not found in the specific folder.")
         Lacks.append("Structural xyz files")
     else:
-        print(f"Files were copied into the {result_path} folder.")
+        print("\n\tCopying structural xyz files...")
         for file in struct_files:
             name = os.path.basename(file).replace(".all", "")
             copy_file(file, f"{result_path}/{name}.xyz", Lacks)
+        print(f"\t>>> {Color.GREEN}Structural Files were copied into the {result_path} folder.{Color.RESET}")
 
     if Lacks:
         messages.append(f"\nSeveral result files were not found in the specific folder:")
@@ -2010,7 +2019,7 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
 
 def combineData(MaterName, Nmol, tcal_path, result_path, MinFileName, TIFileName, PCFileName,
                 Formated_Tilt, mol_pos, messages, HelpList):
-    print(f"\n**********\n{Color.GREEN} Combining Data...{Color.RESET}\n")
+    print(f"\t>>> Combining Data...\n")
     with open(f"{tcal_path}/{TIFileName}", "r") as TIFile:
         TILines = TIFile.readlines()
         del TILines[0:2]
@@ -2111,7 +2120,7 @@ def combineData(MaterName, Nmol, tcal_path, result_path, MinFileName, TIFileName
     print(f"\n"
           f"\t>>> {Color.GREEN}Combining Data: Succeeded!!{Color.RESET}\n"
           f"\t>>> {MinFileName} and {TIFileName} were combined into "
-          f"{result_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min-TIs*.txt.")
+          f"{result_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min-TIs*.txt.\n")
     return
 
 
@@ -2147,25 +2156,9 @@ def saveCombData(Name, path, List):
 
 
 def copy_file(src, dest, lacks_list):
-    """
-    指定されたファイルをコピーする。
-
-    ファイルが存在する場合は指定された宛先にコピーし、コピーが成功したことを
-    コンソールに表示する。ファイルが存在しない場合は、ファイルパスを
-    lacks_listに追加する。
-
-    Parameters:
-    src (str): コピー元のファイルパス。
-    dest (str): コピー先のディレクトリパス。
-    lacks_list (list): 存在しないファイルのパスを格納するリスト。
-
-    Returns:
-    None
-    """
     if os.path.isfile(src):
         execute(["cp", src, dest], False)
-        print(f"\n"
-              f"\t>>> Complete: {src} was copied into the {dest}")
+        print(f"\t>>> {src} copy to {dest}: {Color.GREEN}Complete{Color.RESET}")
     else:
         lacks_list.append(src)
     return
