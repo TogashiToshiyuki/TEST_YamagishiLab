@@ -11,6 +11,7 @@ import datetime
 import time
 import sys
 import glob
+import random
 
 print = functools.partial(print, flush=True)
 
@@ -176,13 +177,24 @@ def main():
     Operator = getOperator()
 
     # Make the condition file
-    which, dev, dirpath, tcalpath, RefLines = mkConditionFile(MaterName, Nmol, mol_pos,
+    which, dev, dirpath, tcal_path, RefLines = mkConditionFile(MaterName, Nmol, mol_pos,
                                                               Formated_Tilt, messages, HelpList)
 
     # Search for the most stable structure
     Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
-                                 dirpath, which, dev, RefLines, Operator, messages, HelpList, Debug, tcalpath)
+                                 dirpath, which, dev, RefLines, Operator, messages, HelpList, Debug, tcal_path)
 
+    # Calculate the transfer integral
+    Calculate_tcal(calculation_tcal_Flag, tcal_path, MaterName, Nmol, mol_pos,
+                   Formated_Tilt, Debug, messages, HelpList)
+
+    # Save the results
+    Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList)
+
+    # End of the program
+    print(f"{Color.GREEN}\n"
+          f"************************* ALL PROCESSES END *************************"
+          f"{Color.RESET}\n")
     return
 
 
@@ -715,11 +727,7 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
         print(f"\n"
               f"\t>>> {Color.GREEN}Local minimum values were successfully found "
               f"at '{len(MinConditions)}' angles.{Color.RESET}\n"
-              f"\n"
-              f"\t>>> Com files for minimum energies were copied into {tcalpath} folder\n"
-              f"\n"
-              f"**********\n"
-              f"Making XYZ files...\n")
+              f"\t>>> Com files for minimum energies were copied into {tcalpath} folder")
         mkXYZfile(tcalpath, Debug)
     return
 
@@ -740,8 +748,12 @@ def getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Oper
                 qsub_temp = mkFiles(MaterName, Nmol, mol_pos, Condition, Operator, dirpath,
                                     Tilt, Formated_Tilt, False, messages, HelpList)
                 qsubList.append(qsub_temp)
-        print("\n**********\nJobs are submitting...")
-        job_submission(messages, HelpList, qsubList, dirpath, Nmol, which, Debug)
+        job_submission(messages, HelpList, qsubList, dirpath, Nmol, which)
+        if Debug:
+            pass
+        else:
+            rmWildCards(f"{dirpath}/*.sh*")
+            rmWildCards(f"{dirpath}/*.chk")
 
         print("\n**********\nReading Data...\n")
         readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpList)
@@ -1100,7 +1112,7 @@ def format_coordinate(coord):
 
 
 # job submission
-def job_submission(messages, HelpList, qsubList, dirpath, Nmol, which, Debug):
+def job_submission(messages, HelpList, qsubList, dirpath, Nmol, which):
     """
     Submit the job
     :param messages:
@@ -1109,15 +1121,16 @@ def job_submission(messages, HelpList, qsubList, dirpath, Nmol, which, Debug):
     :param dirpath:
     :param Nmol:
     :param which:
-    :param Debug:
     :return:
     """
+    print("\n**********\nJobs are submitting...")
     if len(qsubList) == 0:
-        messages.append(f"\t>>> {Color.GREEN}Job was not submitted.{Color.RESET}\n"
-                        f"\t>>> Calculations with the conditions might be finished.")
+        messages.append(f"\t>>> Job was not submitted.\n"
+                        f"\t>>> {Color.GREEN}Calculations with the conditions might be finished.{Color.RESET}")
         help_check_exit(messages, HelpList)
     else:
         for qsub in qsubList:
+            qsub = qsub.split()
             subprocess.run(qsub, cwd=f"./{dirpath}")
 
         if "2mol" in Nmol:
@@ -1169,11 +1182,6 @@ def job_submission(messages, HelpList, qsubList, dirpath, Nmol, which, Debug):
         else:
             print(f"{Color.GREEN}\n\n"
                   f"Calculation cycles for {which} until JobID {MyJobIDList[-1]} were finished.{Color.RESET}")
-            if Debug:
-                pass
-            else:
-                rmWildCards(f"{dirpath}/*.sh*")
-                rmWildCards(f"{dirpath}/*.chk")
     return
 
 
@@ -1325,7 +1333,10 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                             print(f"{Color.RED}Error: {Log} did not finish normally.{Color.RESET}")
 
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "a") as error_log:
-                                error_log.write(f"{Log.split("/")[-1].split(".")[0].split("_")[-1]}\n")
+                                Log = Log.split("/")[-1]
+                                Log = Log.split(".")[0]
+                                Log = Log.split("_")[-1]
+                                error_log.write(f"{Log}\n")
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "r") as error_log:
                                 error_lines = error_log.readlines()
                             error_lines = list(set(error_lines))
@@ -1536,7 +1547,8 @@ def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos, MaterN
     for RefLine in RefLines:
         Contents = RefLine.strip().split()
         Degs.append(round(float(Contents[0]), 1))
-    print("\nNew conditions for the next cycle:")
+    print("\nCreating new conditions for the next cycle...")
+    print("\tNew conditions for the next cycle:")
     for Deg in Degs:
         ValueList = []
         RefValues = getRefValues(Deg, RefLines)
@@ -1626,12 +1638,13 @@ def getMinConditions(MaterName, Nmol, Formated_Tilt, mol_pos):
     return MinConditions
 
 
-def execute(command_list, TEXT):
+def execute(command_list, TEXT, directory=None):
     command = ' '.join(command_list)
     if TEXT:
         print(f'> {command}')
 
-    res = subprocess.run(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+    res = subprocess.run(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+                         cwd=directory)
     # python3.6
 
     # res = subprocess.run(command_list, capture_output=True, text=True)
@@ -1644,15 +1657,15 @@ def execute(command_list, TEXT):
 
 def mkXYZfile(tcalpath, Debug):
     F_paths = glob.glob(f"{tcalpath}/*.com")
+    print(f"\n"
+          f"**********\n"
+          f"Making XYZ files...")
     if not F_paths:
         print(f"\t>>> There is NO .com file in the {tcalpath} folder.")
         return
 
-    print(f"\t>>> '{len(F_paths)}' files were transformed to XYZ files!!")
     for F_path in F_paths:
         process_file(F_path)
-
-    print(f"Converting .com files to .xyz...\n")
 
     ComFileNames = glob.glob(f"{tcalpath}/*.com")
     XYZFileNameList = []
@@ -1690,11 +1703,465 @@ def process_file(F_path):
     return
 
 
-def Calculate_tcal(calculation_tcal_flag, tcalpath, MaterName, Nmol, mol_pos, Formated_Tilt):
+def Calculate_tcal(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
+                   Formated_Tilt, Debug, messages, HelpList):
     if calculation_tcal_flag:
-        if not os.path.exists(f"./{tcalpath}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal.log"):
-            print(f"**********\n"
-                  f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
+        print(f"\n**********\n"
+              f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
+        if not os.path.exists(f"./{tcal_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal.log"):
+            qsubList = []
+            XYZs = glob.glob(f"{tcal_path}/*.xyz")
+            for XYZ in XYZs:
+                if "_m1.xyz" in XYZ or "_m2.xyz" in XYZ or "-12.xyz" in XYZ or "-23.xyz" in XYZ or "-31.xyz" in XYZ:
+                    XYZ = XYZ.replace("./", "")
+                    os.remove(f"{XYZ}")
+                else:
+                    pass
+            XYZ_3mol_to_XYZ_2mol(tcal_path, Debug, messages, HelpList)
+
+            with open(f"{tcal_path}/tcal.sh", "w") as f:
+                f.write(Stereotyped.tcal_sh_txt)
+            qsubList.append("qsub tcal.sh")
+            job_submission(messages, HelpList, qsubList, tcal_path, Nmol, "tcal")
+            if Debug:
+                pass
+            else:
+                rmWildCards(f"{tcal_path}/*.sh*")
+            subprocess.run(["rename", "tcal", f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal", "tcal.log"],
+                           cwd=tcal_path)
+            readlog(tcal_path, MaterName, Nmol, mol_pos, Formated_Tilt, messages, HelpList)
+        else:
+            print(f"\t>>> tcal.log: {Color.GREEN}Already exists!!{Color.RESET}")
+            print(f"\t>>> {Color.GREEN}Calculation of transfer integrals was skipped.{Color.RESET}")
+    else:
+        pass
+    # Phase check
+    PhaseCheck(tcal_path, Debug)
+    return
+
+
+def XYZ_3mol_to_XYZ_2mol(tcal_path, Debug, messages, HelpList):
+    filepaths = glob.glob(f"{tcal_path}/*_3mol*.xyz")
+
+    Faults = []
+    print("\nConverting 3mol to 2mol XYZ files...")
+    for filepath in filepaths:
+        Mol1, Mol2, Mol3 = [], [], []
+        filecore = filepath[:-4]
+        with open(filepath, "r") as f:
+            # Read the first line ( the number of atoms )
+            number_atoms = f.readline()
+            Comment = f.readline()
+            coordinates = f.readlines()
+        if Debug:
+            messages.append("\t>>> " + filepath.strip())
+            messages.append(f"\t>>> Number of atoms: {number_atoms.strip()}")
+
+        if int(float(number_atoms)) % 3 != 0:
+            Faults.append(filepath)
+            messages.append(f"\t>>> {Color.RED}Error: {filepath} did not divide by 3.{Color.RESET}")
+        else:
+            Atoms_inMol = int(round(float(number_atoms) / 3, 5))
+            for i in range(Atoms_inMol):
+                Mol1.append(coordinates[i])
+                Mol2.append(coordinates[i + Atoms_inMol])
+                Mol3.append(coordinates[i + 2 * Atoms_inMol])
+            Atoms_in_TcalXYZFile = int(round(Atoms_inMol * 2, 3))
+
+            with open(f"{filecore}-12.xyz", "w") as newF12, open(f"{filecore}-23.xyz", "w") as newF23, open(
+                    f"{filecore}-31.xyz", "w") as newF31:
+                newF12.write(f"{Atoms_in_TcalXYZFile}\n"
+                             f"{Comment}")
+                newF23.write(f"{Atoms_in_TcalXYZFile}\n"
+                             f"{Comment}")
+                newF31.write(f"{Atoms_in_TcalXYZFile}\n"
+                             f"{Comment}")
+                for i in range(Atoms_inMol):
+                    newF12.write(Mol1[i])
+                    newF23.write(Mol2[i])
+                    newF31.write(Mol3[i])
+                for i in range(Atoms_inMol):
+                    newF12.write(Mol2[i])
+                    newF23.write(Mol3[i])
+                    newF31.write(Mol1[i])
+            messages.append(f"\t>>> {filecore}-12.xyz: Created!!")
+            messages.append(f"\t>>> {filecore}-23.xyz: Created!!")
+            messages.append(f"\t>>> {filecore}-31.xyz: Created!!")
+            os.rename(filepath, f"{filecore}.all")
+    if len(Faults) != 0:
+        for Fault in Faults:
+            messages.append(f"\t>>> {Color.RED}Error: {Fault} did not divide by 3.{Color.RESET}")
+        HelpList.append(True)
+    else:
+        messages.append(f"\n\t>>> {Color.GREEN}XYZ 3mol to 2mol: Succeeded!!{Color.RESET}")
+    help_check_exit(messages, HelpList)
+    return
+
+
+def readlog(tcal_path, MaterName, Nmol, mol_pos, Formated_Tilt, messages, HelpList):
+    print(f"\nReading the Tcal log file...")
+    filepath = f"{tcal_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal.log"
+    with open(filepath, "r") as file:
+        lines = file.readlines()
+
+    DataList = []
+    keywords = ["Input File Name:", "NLUMO", "LUMO", "HOMO", "NHOMO"]
+    for line in lines:
+        for keyword in keywords:
+            if keyword in line:
+                DataList.append(line)
+                break
+
+    if len(DataList) % 5 != 0:
+        print(f"\t>>> {Color.RED}Error: UNEXPECTED ERROR in read Tcal log process.{Color.RESET}")
+        HelpList.append(True)
+        help_check_exit(messages, HelpList)
+
+    output_filepath = f"{tcal_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_TIs.txt"
+    with open(output_filepath, "w") as file:
+        header = (f"***** Transfer Integrals in "
+                  f"{tcal_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal.log *****\n")
+        columns = "input file\tNLUMO (meV)\tLUMO (meV)\tHOMO (meV)\tNHOMO (meV)\n"
+        file.write(header + columns)
+        print(header.strip())
+        print(columns.strip())
+
+        for i in range(0, len(DataList), 5):
+            input_file = DataList[i].split(": ")[1].split(".xyz")[0]
+            NLUMO = extract_value(DataList[i + 1], "NLUMO")
+            LUMO = extract_value(DataList[i + 2], "LUMO")
+            HOMO = extract_value(DataList[i + 3], "HOMO")
+            NHOMO = extract_value(DataList[i + 4], "NHOMO")
+            file.write(f"{input_file}\t{NLUMO}\t{LUMO}\t{HOMO}\t{NHOMO}\n")
+            print(f"{input_file}\t{NLUMO}\t{LUMO}\t{HOMO}\t{NHOMO}")
+    return
+
+
+def extract_value(line, keyword):
+    return float(line.split(keyword)[-1].split()[0])
+
+
+def PhaseCheck(tcal_path, Debug):
+    print("\n**********\nPhase Checking...")
+    chkKEY = "-12"
+    CalCores = mkCalCoreList(tcal_path, chkKEY)
+    if len(CalCores) == 0:
+        print(f"\t>>> Any chk file is NOT found in the specified folder.\n"
+              f"\t>>> The process for phase check was {Color.GREEN}skipped.{Color.RESET}")
+    else:
+        with open(f"{tcal_path}/PhaseCheck.txt", "w") as file:
+            file.write("Name\tfor LUMO\tfor HOMO\n")
+            for CalCore in CalCores:
+                mkCubeFile(tcal_path, f"{CalCore}_m1.chk")
+                mkCubeFile(tcal_path, f"{CalCore}_m2.chk")
+
+                HomoChk = ComparePhase(tcal_path, CalCore, "HOMO")
+                LumoChk = ComparePhase(tcal_path, CalCore, "LUMO")
+
+                file.write(f"{CalCore}\t{LumoChk}\t{HomoChk}\n")
+        if Debug:
+            pass
+        else:
+            rmWildCards(f"{tcal_path}/*.chk")
+            rmWildCards(f"{tcal_path}/*d-*.log")
+            rmWildCards(f"{tcal_path}/*.gjf")
+    return
+
+
+def mkCalCoreList(tcal_path, chkKEY):
+    FileList = glob.glob(f"{tcal_path}/*{chkKEY}*")
+    CalCores = []
+    for file in FileList:
+        if "_m1.chk" in file or "_m2.chk" in file:
+            CalCores.append(file[file.rfind("/") + 1:-7])
+        else:
+            pass
+    CalCores = list(set(CalCores))
+    return CalCores
+
+
+def mkCubeFile(tcal_path, chkfile):
+
+    def run_command(command, description):
+        subprocess.run(command, cwd=tcal_path, timeout=10)
+        print(f"\t{description}: {Color.GREEN}Completed!!{Color.RESET}")
+
+    print(f"For {chkfile} ...")
+    fchk = f"{chkfile[:-4]}.fch"
+    HomoCub = f"{chkfile[:-4]}_HOMO.cub"
+    LumoCub = f"{chkfile[:-4]}_LUMO.cub"
+
+    run_command(["formchk", chkfile, fchk], f"File Conversion ({chkfile} -> {fchk})")
+    run_command(["cubegen", "0", "MO=Homo", fchk, HomoCub, "-2", "h"], f"{HomoCub} has been created")
+    run_command(["cubegen", "0", "MO=Lumo", fchk, LumoCub, "-2", "h"], f"{LumoCub} has been created")
+    run_command(["rm", fchk], f"Removing {fchk}")
+    return
+
+
+def ComparePhase(tcal_path, CalCore, HomoLumo):
+    """
+
+    :param tcal_path:
+    :param CalCore:
+    :param HomoLumo:
+    :return:
+    """
+    Val1 = ReadCube(tcal_path, f"{CalCore}_m1_{HomoLumo}.cub")
+    Val2 = ReadCube(tcal_path, f"{CalCore}_m2_{HomoLumo}.cub")
+
+    if len(Val1) != len(Val2):
+        return "not available(1) (Different number of grids in the file)"
+
+    PClist = []
+    print(f"{CalCore} {HomoLumo} Data Excerpt")
+    for i in random.sample(range(len(Val1)), min(20, len(Val1))):
+        if abs(Val1[i]) > 1e-7:
+            Val = Val1[i] * Val2[i]
+            print(f"m1 value = {Val1[i]}\tm2 value = {Val2[i]}")
+            PClist.append("Opposit" if Val < 0 else "Same")
+
+    PC = list(set(PClist))
+    if len(PC) == 1:
+        return PC[0]
+    elif len(PC) > 1:
+        return "not available(2)"
+    else:
+        return "not available(3)"
+
+
+def ReadCube(tcal_path, Cubefile):
+    """
+
+    :param tcal_path:
+    :param Cubefile:
+    :return:
+    """
+    with open(f"{tcal_path}/{Cubefile}", "r") as file:
+        for _ in range(2):  # skip the first two lines (comment and number of atoms)
+            next(file)
+
+        NumE, Xgrid, Ygrid, Zgrid = (int(next(file).split()[0]) for _ in range(4))
+        for _ in range(NumE):  # skip the number of electrons
+            next(file)
+
+        values = [float(x) for _ in range(Xgrid * Ygrid)
+                  for line in file for x in line.split()]
+
+    subprocess.run(["rm", Cubefile], cwd=tcal_path, timeout=10)
+    return values
+
+
+def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList):
+    result_name = f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d"
+    print(f"\n**********\n{Color.GREEN} Resulting Data Set for {result_name}...{Color.RESET}")
+
+    result_path = f"{result_name}_result"
+    os.makedirs(result_path, exist_ok=True)
+
+    MinFileName = f"{result_name}_min.txt"
+    TIFileName = f"{result_name}_TIs.txt"
+    AllFileName = f"{result_name}_all.txt"
+    PCFileName = "PhaseCheck.txt"
+
+    Lacks = []
+
+    if os.path.isfile(MinFileName) and os.path.isfile(f"{tcal_path}/{TIFileName}"):
+        combineData(MaterName, Nmol, tcal_path, result_path, MinFileName, TIFileName,
+                    PCFileName, Formated_Tilt, mol_pos, messages, HelpList)
+    else:
+        copy_file(MinFileName, f"{result_path}/{MinFileName}", Lacks)
+        print("\n")
+
+    print("\tCopying Files required for recalculation...")
+    copy_file(AllFileName, f"{result_path}/{AllFileName}", Lacks)
+
+    copy_file(f"{MaterName}.xyz", f"{result_path}/{MaterName}.xyz", Lacks)
+
+    condition_list = f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt"
+    copy_file(condition_list, f"{result_path}/{condition_list}", Lacks)
+
+    copy_file("CalcSetting_HB.txt", f"{result_path}/CalcSetting_HB.txt", Lacks)
+
+    print("\n\tCopying min file...")
+    copy_file(f"{result_name}_min.txt", f"{result_path}/{result_name}_min.txt", Lacks)
+
+    if "3mol" in Nmol:
+        copy_file(f"{result_name}_mins.hist", f"{result_path}/{result_name}_mins.hist", Lacks)
+
+    if "2mol" in Nmol:
+        struct_files = glob.glob(f"{tcal_path}/*.xyz")
+    elif "3mol" in Nmol:
+        struct_files = glob.glob(f"{tcal_path}/*.all")
+    else:
+        struct_files = []
+
+    if not struct_files:
+        print("\t>>> Any file for aggregation structure is not found in the specific folder.")
+        Lacks.append("Structural xyz files")
+    else:
+        print("\n\tCopying structural xyz files...")
+        for file in struct_files:
+            name = os.path.basename(file).replace(".all", "")
+            copy_file(file, f"{result_path}/{name}.xyz", Lacks)
+        print(f"\t>>> {Color.GREEN}Structural Files were copied into the {result_path} folder.{Color.RESET}")
+
+    if Lacks:
+        messages.append(f"\nSeveral result files were not found in the specific folder:")
+        for lack in Lacks:
+            messages.append(f"\t>>> {lack}")
+        HelpList.append(True)
+    else:
+        messages.append(f"\n\t{Color.GREEN}All files were copied successfully!!{Color.RESET}")
+
+    help_check_exit(messages, HelpList)
+    return
+
+
+def combineData(MaterName, Nmol, tcal_path, result_path, MinFileName, TIFileName, PCFileName,
+                Formated_Tilt, mol_pos, messages, HelpList):
+    print(f"\tCombining Data...\n")
+    with open(f"{tcal_path}/{TIFileName}", "r") as TIFile:
+        TILines = TIFile.readlines()
+        del TILines[0:2]
+
+    with open(MinFileName, "r") as MinFile:
+        MinLines = MinFile.readlines()
+        del MinLines[0:2]
+
+    if os.path.exists(f"{tcal_path}/{PCFileName}"):
+        with open(f"{tcal_path}/{PCFileName}", "r") as PCFile:
+            PCLines = PCFile.readlines()
+            del PCLines[0]
+    else:
+        PCLines = []
+
+    if len(TILines) == len(MinLines) and "2mol" in Nmol:
+        pass
+    elif len(TILines) == len(MinLines) * 3 and "3mol" in Nmol:
+        pass
+    else:
+        messages.append(f"\t>>>{Color.RED}Error: The numbers of data lines in {MinFileName} "
+                        f"and {TIFileName} DO NOT match.{Color.RESET}\n"
+                        f"A file was NOT be changed.")
+        HelpList.append(True)
+    help_check_exit(messages, HelpList)
+
+    CombLines = []
+    CombLines12 = []
+    CombLines23 = []
+    CombLines31 = []
+    print("Entry\tAngle\tDcol\tDtrv\tCpCE\tBSE\t**"
+          "\tTI-NLUMO\tTI-LUMO\tTI-HOMO\tTI-NHOMO\t**\tPC (LUMO)\tTI-LUMO\tPC (HOMO)\tTI-HOMO")
+    for MinLine in MinLines:
+        MinData = MinLine.split()
+
+        if "2mol" in Nmol:
+            Entry = (f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d-{int(float(MinData[0]))}d"
+                     f"-{int(round(float(MinData[1]) * 100, 5))}")
+        elif "3mol" in Nmol:
+            Entry = (f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_{int(float(MinData[0]))}d"
+                     f"-{int(round(float(MinData[1]) * 100, 5))}"
+                     f"-{int(round(float(MinData[2]) * 100, 5))}")
+        else:
+            messages.append(f"\t>>>{Color.RED}Error: UNEXPECTED (Nmol not specified){Color.RESET}")
+            HelpList.append(True)
+            help_check_exit(messages, HelpList)
+            exit()
+
+        for TILine in TILines:
+            TIData = TILine.split()
+            if (TIData[0] == Entry
+                    or TIData[0] == f"{Entry}-12"
+                    or TIData[0] == f"{Entry}-23"
+                    or TIData[0] == f"{Entry}-31"):
+                CombLine_temp = (f"{TIData[0]}\t{MinData[0]}\t{MinData[1]}\t{MinData[2]}\t{MinData[3]}\t{MinData[4]}"
+                                 f"\t**\t{TIData[1]}\t{TIData[2]}\t{TIData[3]}\t{TIData[4]}")
+
+                HomoChk = "yet"
+                LumoChk = "yet"
+                if len(PCLines) != 0:
+                    for PCLine in PCLines:
+                        PCData = PCLine.split()
+                        if PCData[0].strip() == TIData[0].strip():
+                            LumoChk = PCData[1]
+                            HomoChk = PCData[2]
+                else:
+                    pass
+
+                correctTI_LUMO = correctTI(LumoChk, TIData[2])
+                correctTI_HOMO = correctTI(HomoChk, TIData[3])
+                CombLine = f"{CombLine_temp}\t**\t{LumoChk}\t{correctTI_LUMO}\t{HomoChk}\t{correctTI_HOMO}\n"
+                if TIData[0] == Entry:
+                    CombLines.append(CombLine)
+                elif TIData[0] == f"{Entry}-12":
+                    CombLines12.append(CombLine)
+                elif TIData[0] == f"{Entry}-23":
+                    CombLines23.append(CombLine)
+                elif TIData[0] == f"{Entry}-31":
+                    CombLines31.append(CombLine)
+                else:
+                    pass
+
+            else:
+                pass
+    help_check_exit(messages, HelpList)
+    CombLines.sort()
+    CombLines12.sort()
+    CombLines23.sort()
+    CombLines31.sort()
+    saveCombData(f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d",
+                 f"{result_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min-TIs.txt", CombLines)
+    saveCombData(f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d-12",
+                 f"{result_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min-TIs-12.txt", CombLines12)
+    saveCombData(f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d-23",
+                 f"{result_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min-TIs-23.txt", CombLines23)
+    saveCombData(f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d-31",
+                 f"{result_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min-TIs-31.txt", CombLines31)
+    print(f"\n"
+          f"\t>>> {Color.GREEN}Combining Data: Succeeded!!{Color.RESET}\n"
+          f"\t>>> {MinFileName} and {TIFileName} were combined into "
+          f"{result_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min-TIs*.txt.\n")
+    return
+
+
+def correctTI(PhaseChk, TI):
+    TI = float(TI)
+    if PhaseChk == "Same":
+        CorrectTI = TI
+    elif PhaseChk == "Opposit":
+        CorrectTI = -1 * TI
+    else:
+        CorrectTI = TI
+    return CorrectTI
+
+
+def saveCombData(Name, path, List):
+    header = (
+        f"*************** {Name} Minimum Energy and Transfer Integrals ***************\n"
+        "Entry\tAngle (deg.)\tD in col. (Angstrom)\tD in transv. (Angstrom)\t"
+        "Counterpoise corrected energy (AU)\tBSSE energy (AU)\t**\t"
+        "TI-NLUMO (meV)\tTI-LUMO (meV)\tTI-HOMO (meV)\tTI-NHOMO (meV)\t**\t"
+        "PhaseChk (LUMO)\tTI (LUMO)\tPhaseChk (HOMO)\tTI (HOMO)\n"
+    )
+    if len(List) == 0:
+        pass
+    else:
+        with open(path, "w") as File:
+            File.write(header)
+            print(f"\n{header}")
+            for line in List:
+                File.write(line)
+                print(line.strip())
+    return
+
+
+def copy_file(src, dest, lacks_list):
+    if os.path.isfile(src):
+        execute(["cp", src, dest], False)
+        print(f"\t>>> {src} copy to {dest}: {Color.GREEN}Complete{Color.RESET}")
+    else:
+        lacks_list.append(src)
+    return
 
 
 if __name__ == "__main__":
