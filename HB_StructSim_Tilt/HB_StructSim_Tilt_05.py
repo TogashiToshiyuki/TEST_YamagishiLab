@@ -1695,7 +1695,6 @@ def Calculate_tcal(calculation_tcal_flag, tcalpath, MaterName, Nmol, mol_pos, Fo
         if not os.path.exists(f"./{tcalpath}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal.log"):
             print(f"**********\n"
                   f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
-            print("Here we go!!")
 
 
 if __name__ == "__main__":
