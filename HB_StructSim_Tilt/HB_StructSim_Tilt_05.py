@@ -178,7 +178,7 @@ def main():
 
     # Make the condition file
     which, dev, dirpath, tcal_path, RefLines = mkConditionFile(MaterName, Nmol, mol_pos,
-                                                              Formated_Tilt, messages, HelpList)
+                                                               Formated_Tilt, messages, HelpList)
 
     # Search for the most stable structure
     Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
@@ -1656,6 +1656,12 @@ def execute(command_list, TEXT, directory=None):
 
 
 def mkXYZfile(tcalpath, Debug):
+    """
+    Make the XYZ file
+    :param tcalpath:
+    :param Debug:
+    :return:
+    """
     F_paths = glob.glob(f"{tcalpath}/*.com")
     print(f"\n"
           f"**********\n"
@@ -1881,7 +1887,6 @@ def mkCalCoreList(tcal_path, chkKEY):
 
 
 def mkCubeFile(tcal_path, chkfile):
-
     def run_command(command, description):
         subprocess.run(command, cwd=tcal_path, timeout=10)
         print(f"\t{description}: {Color.GREEN}Completed!!{Color.RESET}")
