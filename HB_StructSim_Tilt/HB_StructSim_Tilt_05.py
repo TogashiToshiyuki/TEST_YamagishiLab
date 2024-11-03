@@ -136,6 +136,9 @@ class Color:
 class Constant:
     Cn = 1
     d_another = 0
+    CycleCondition_n_02 = 1
+    CycleCondition_n_01 = 1
+    CycleCondition_n_005 = 1
 
 
 class CheckRequired(argparse.Action):
@@ -636,17 +639,16 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
         print(f"\n\t>>> {Color.GREEN}Calculations for 2mol were successfully finished.{Color.RESET}")
     elif "3mol" in Nmol:
         temp_Structures = []
-        MostStable = False
-        dev = 0.2
+        MostStable, dev = False, 0.2
         while not MostStable:
             RefLines = getRefLines(f"{MaterName}_3mol{mol_pos}_t{Formated_Tilt}d_min.txt")
             temp_Structures.append(RefLines)
-            mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos)
+            mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dcol",
                                   dev, RefLines, messages, HelpList, Debug)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
-            mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos)
+            mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dtrv",
                                   dev, RefLines, messages, HelpList, Debug)
 
@@ -654,16 +656,16 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
             MostStable = CompareStructures(RefLines, temp_Structures[-1])
 
         print(f"\n{Color.GREEN}**********\nTransition in 0.1-Å increments.\n{Color.RESET}")
-        dev = 0.1
+        MostStable, dev = False, 0.1
         while not MostStable:
             RefLines = getRefLines(f"{MaterName}_3mol{mol_pos}_t{Formated_Tilt}d_min.txt")
             temp_Structures.append(RefLines)
-            mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos)
+            mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dcol",
                                   dev, RefLines, messages, HelpList, Debug)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
-            mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos)
+            mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dtrv",
                                   dev, RefLines, messages, HelpList, Debug)
 
@@ -671,16 +673,16 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
             MostStable = CompareStructures(RefLines, temp_Structures[-1])
 
         print(f"\n{Color.GREEN}**********\nTransition in 0.05-Å increments.\n{Color.RESET}")
-        dev = 0.05
+        MostStable, dev = False, 0.05
         while not MostStable:
             RefLines = getRefLines(f"{MaterName}_3mol{mol_pos}_t{Formated_Tilt}d_min.txt")
             temp_Structures.append(RefLines)
-            mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos)
+            mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dcol",
                                   dev, RefLines, messages, HelpList, Debug)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
-            mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos)
+            mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dtrv",
                                   dev, RefLines, messages, HelpList, Debug)
 
@@ -724,21 +726,20 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
 
 def getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt,
                           which, dev, RefLines, messages, HelpList, Debug):
-    judge, qsubList = False, []
-
+    judge = False
     while not judge:
+        qsubList = []
         Conditions = getConditions(f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt")
         with open(f"{dirpath}/G.sh", "w") as f:
             f.write(Stereotyped.Sh_txt)
 
         for Condition in Conditions:
-            if os.path.exists(f"{dirpath}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_{Condition.strip()}.log"):
+            if os.path.exists(f"{dirpath}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_{Condition}.log"):
                 pass
             else:
                 qsub_temp = mkFiles(MaterName, Nmol, mol_pos, Condition, Operator, dirpath,
                                     Tilt, Formated_Tilt, False, messages, HelpList)
                 qsubList.append(qsub_temp)
-        print(qsubList)
         print("\n**********\nJobs are submitting...")
         job_submission(messages, HelpList, qsubList, dirpath, Nmol, which, Debug)
 
@@ -1271,6 +1272,17 @@ def rmWildCards(wildcard):
 
 
 def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpList):
+    """
+    Read the energy
+    :param dirpath:
+    :param MaterName:
+    :param Nmol:
+    :param Formated_Tilt:
+    :param mol_pos:
+    :param messages:
+    :param HelpList:
+    :return:
+    """
     DegList = []
     LogList = glob.glob(f"{dirpath}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_*.log")
     LogList.sort()
@@ -1452,7 +1464,13 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
             except IndexError:
                 pass
 
-        if round(SV + dev, 2) in ValueList and round(SV - dev, 2) in ValueList:
+        if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
+            Judges.append("complete")
+            print(f"\nThe local minimum by 0.05 step for {Deg} degree was Found;\t{SV}.")
+            print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
+            ComplDeg.append(Deg)
+            ComplVal.append(SV)
+        elif round(SV + dev, 2) in ValueList and round(SV - dev, 2) in ValueList:
             Judges.append("complete")
             print(f"\nThe local minimum by {dev} step for {Deg} degree was Found;\t{SV}.")
             print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
@@ -1503,13 +1521,15 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
     return judge
 
 
-def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos):
+def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos, MaterName):
     Degs = []
     NewConditions = []
-    if dev == 0.1:
-        n = 1
+    if dev == 0.2:
+        n = Constant.CycleCondition_n_02
+    elif dev == 0.1:
+        n = Constant.CycleCondition_n_01
     elif dev == 0.05:
-        n = 1
+        n = Constant.CycleCondition_n_005
     else:
         n = 1
 
@@ -1518,6 +1538,7 @@ def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos):
         Degs.append(round(float(Contents[0]), 1))
     print("\nNew conditions for the next cycle:")
     for Deg in Degs:
+        ValueList = []
         RefValues = getRefValues(Deg, RefLines)
         if which == "Dcol":
             SV = round(float(RefValues[0]), 2)
@@ -1526,11 +1547,41 @@ def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos):
         else:
             SV = int()
 
-        for i in range(n):
-            NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV - dev * (n - i), which, RefValues)
-            NewConditions.append(NewCondition)
-            NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV + dev * (i + 1), which, RefValues)
-            NewConditions.append(NewCondition)
+        with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_all.txt", "r") as All:
+            AllLines = All.readlines()
+            for AllLine in AllLines:
+                Contents = AllLine.strip().split("\t")
+                try:
+                    DataDeg = round(float(Contents[1]), 1)
+                    if DataDeg == Deg:
+                        DataDcol = round(float(Contents[2]), 2)
+                        DataDtrv = round(float(Contents[3]), 2)
+
+                        if which == "Dcol":
+                            RefDtrv = round(float(RefValues[1]), 2)
+                            if DataDtrv == RefDtrv:
+                                ValueList.append(DataDcol)
+                            if Contents[0] == "*":
+                                SV = DataDcol
+                        if which == "Dtrv":
+                            RefDcol = round(float(RefValues[0]), 2)
+                            if DataDcol == RefDcol:
+                                ValueList.append(DataDtrv)
+                            if Contents[0] == "*":
+                                SV = DataDtrv
+                except ValueError:
+                    pass
+                except IndexError:
+                    pass
+
+        if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
+            pass
+        else:
+            for i in range(n):
+                NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV - dev * (n - i), which, RefValues)
+                NewConditions.append(NewCondition)
+                NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV + dev * (i + 1), which, RefValues)
+                NewConditions.append(NewCondition)
 
     with open(f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt", "r") as file:
         orgCondition = file.readlines()
