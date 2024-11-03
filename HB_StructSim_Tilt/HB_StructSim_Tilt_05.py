@@ -727,8 +727,7 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
         print(f"\n"
               f"\t>>> {Color.GREEN}Local minimum values were successfully found "
               f"at '{len(MinConditions)}' angles.{Color.RESET}\n"
-              f"\n"
-              f"\t>>> Com files for minimum energies were copied into {tcalpath} folder\n")
+              f"\t>>> Com files for minimum energies were copied into {tcalpath} folder")
         mkXYZfile(tcalpath, Debug)
     return
 
@@ -749,7 +748,6 @@ def getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Oper
                 qsub_temp = mkFiles(MaterName, Nmol, mol_pos, Condition, Operator, dirpath,
                                     Tilt, Formated_Tilt, False, messages, HelpList)
                 qsubList.append(qsub_temp)
-        print("\n**********\nJobs are submitting...")
         job_submission(messages, HelpList, qsubList, dirpath, Nmol, which)
         if Debug:
             pass
@@ -1125,6 +1123,7 @@ def job_submission(messages, HelpList, qsubList, dirpath, Nmol, which):
     :param which:
     :return:
     """
+    print("\n**********\nJobs are submitting...")
     if len(qsubList) == 0:
         messages.append(f"\t>>> Job was not submitted.\n"
                         f"\t>>> {Color.GREEN}Calculations with the conditions might be finished.{Color.RESET}")
@@ -1665,11 +1664,8 @@ def mkXYZfile(tcalpath, Debug):
         print(f"\t>>> There is NO .com file in the {tcalpath} folder.")
         return
 
-    print(f"\t>>> '{len(F_paths)}' files were transformed to XYZ files!!")
     for F_path in F_paths:
         process_file(F_path)
-
-    print(f"\tConverting .com files to .xyz...")
 
     ComFileNames = glob.glob(f"{tcalpath}/*.com")
     XYZFileNameList = []
@@ -1717,7 +1713,8 @@ def Calculate_tcal(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
             XYZs = glob.glob(f"{tcal_path}/*.xyz")
             for XYZ in XYZs:
                 if "_m1.xyz" in XYZ or "_m2.xyz" in XYZ or "-12.xyz" in XYZ or "-23.xyz" in XYZ or "-31.xyz" in XYZ:
-                    execute(["rm", "-r", XYZ], True, tcal_path)
+                    XYZ = XYZ.replace("./", "")
+                    os.remove(f"{XYZ}")
                 else:
                     pass
             XYZ_3mol_to_XYZ_2mol(tcal_path, Debug, messages, HelpList)
@@ -1790,7 +1787,6 @@ def XYZ_3mol_to_XYZ_2mol(tcal_path, Debug, messages, HelpList):
             messages.append(f"\t>>> {filecore}-12.xyz: Created!!")
             messages.append(f"\t>>> {filecore}-23.xyz: Created!!")
             messages.append(f"\t>>> {filecore}-31.xyz: Created!!")
-
             os.rename(filepath, f"{filecore}.all")
     if len(Faults) != 0:
         for Fault in Faults:
@@ -1798,6 +1794,7 @@ def XYZ_3mol_to_XYZ_2mol(tcal_path, Debug, messages, HelpList):
         HelpList.append(True)
     else:
         messages.append(f"\n\t>>> {Color.GREEN}XYZ 3mol to 2mol: Succeeded!!{Color.RESET}")
+    help_check_exit(messages, HelpList)
     return
 
 
@@ -1973,7 +1970,9 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
                     PCFileName, Formated_Tilt, mol_pos, messages, HelpList)
     else:
         copy_file(MinFileName, f"{result_path}/{MinFileName}", Lacks)
+        print("\n")
 
+    print("\tCopying Files required for recalculation...")
     copy_file(AllFileName, f"{result_path}/{AllFileName}", Lacks)
 
     copy_file(f"{MaterName}.xyz", f"{result_path}/{MaterName}.xyz", Lacks)
@@ -1983,6 +1982,7 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
 
     copy_file("CalcSetting_HB.txt", f"{result_path}/CalcSetting_HB.txt", Lacks)
 
+    print("\n\tCopying min file...")
     copy_file(f"{result_name}_min.txt", f"{result_path}/{result_name}_min.txt", Lacks)
 
     if "3mol" in Nmol:
@@ -2011,7 +2011,7 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
             messages.append(f"\t>>> {lack}")
         HelpList.append(True)
     else:
-        messages.append(f"\n{Color.GREEN}All files were copied successfully!!{Color.RESET}")
+        messages.append(f"\n\t{Color.GREEN}All files were copied successfully!!{Color.RESET}")
 
     help_check_exit(messages, HelpList)
     return
@@ -2019,7 +2019,7 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
 
 def combineData(MaterName, Nmol, tcal_path, result_path, MinFileName, TIFileName, PCFileName,
                 Formated_Tilt, mol_pos, messages, HelpList):
-    print(f"\t>>> Combining Data...\n")
+    print(f"\tCombining Data...\n")
     with open(f"{tcal_path}/{TIFileName}", "r") as TIFile:
         TILines = TIFile.readlines()
         del TILines[0:2]
