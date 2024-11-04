@@ -325,6 +325,10 @@ def arg_parser(messages, HelpList):
     return args, MaterName, Debug, Nmol, calculation_tcal_Flag
 
 
+def mkCheckFile(args, Debug, messages, HelpList, MaterName):
+    printf("*************** Structural checks are in place. ***************\n")
+
+
 # Get the tilt angle
 def get_TiltAngle(messages, HelpList, MoleculeName):
     """
