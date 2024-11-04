@@ -185,7 +185,7 @@ def main():
                                  dirpath, which, dev, RefLines, Operator, messages, HelpList, Debug, tcal_path)
 
     # Calculate the transfer integral
-    Calculate_tcal(calculation_tcal_Flag, tcal_path, MaterName, Nmol, mol_pos,
+    Calculate_TI(calculation_tcal_Flag, tcal_path, MaterName, Nmol, mol_pos,
                    Formated_Tilt, Debug, messages, HelpList)
 
     # Save the results
@@ -1714,7 +1714,7 @@ def process_file(F_path):
     return
 
 
-def Calculate_tcal(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
+def Calculate_TI(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
                    Formated_Tilt, Debug, messages, HelpList):
     if calculation_tcal_flag:
         print(f"\n**********\n"
