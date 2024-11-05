@@ -299,7 +299,7 @@ def arg_parser(messages, HelpList):
 
     if args.chk:
         mkCheckFile(args, Debug, messages, HelpList, MaterName)
-        exit()
+        print("Hello, world!")
 
     if args.two_mol and args.three_mol:
         messages.append(f"\t>>>{Color.RED}2mol and 3mol cannot be selected at the same time.{Color.RESET}\n")
