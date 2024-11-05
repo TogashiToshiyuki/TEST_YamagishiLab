@@ -1,6 +1,6 @@
-/HB_StructSim_Tilt/*.txt
-/HB_StructSim_Tilt/*.xyz
-/HB_StructSim_Tilt/*.sh
-/HB_StructSim_Tilt/*.log
-/HB_StructSim_Tilt/*.gjf
-/HB_StructSim_Tilt/StructCheck*
+*.xyz
+*.txt
+*.log
+*.gjf
+*.com
+StructCheck*
