@@ -300,6 +300,10 @@ def mkCheckFile(args, Debug, messages, HelpList, MaterName):
     print(f"{Color.RED}"
           f"********** Starts generating files for structural verification **********\n"
           f"{Color.RESET}")
+    file_path = f"./StructCheck-{MaterName}"
+    os.makedirs(file_path, exist_ok=True)
+    Flag_XYZ = args.xyz
+    Temp_SHs = []
 
 
 # Acquisition of structure
