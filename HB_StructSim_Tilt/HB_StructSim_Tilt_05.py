@@ -297,7 +297,7 @@ def arg_parser(messages, HelpList):
         HelpList.append(True)
 
     if args.chk:
-        print(Stereotyped.AbnormalEnd)
+        mkCheckFile(args, Debug, messages, HelpList, MaterName)
         exit()
 
     if args.two_mol and args.three_mol:
@@ -323,6 +323,22 @@ def arg_parser(messages, HelpList):
     help_check_exit(messages, HelpList)
 
     return args, MaterName, Debug, Nmol, calculation_tcal_Flag
+
+
+def mkCheckFile(args, Debug, messages, HelpList, MaterName):
+    print(f"{Color.RED}"
+          f"********** Starts generating files for structural verification **********\n"
+          f"{Color.RESET}")
+    print("Checking if 'CalcSetting_HB.txt' exists.")
+    if os.path.exists("./CalcSetting_HB.txt"):
+        messages.append("\t>>> CalcSetting_HB.txt: Found")
+        HelpList.append(False)
+    else:
+        messages.append(f"\t>>> {Color.RED}CalcSetting_HB.txt: NOT Found{Color.RESET}\n"
+                        "\t>>> Make the correct CalcSetting_HB.txt and then restart the program.")
+        HelpList.append(True)
+        with open("CalcSetting_HB.txt", "w") as file:
+            file.write(Stereotyped.CalcSetting_HB)
 
 
 # Get the tilt angle
