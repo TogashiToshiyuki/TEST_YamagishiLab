@@ -4,6 +4,7 @@
 import functools
 import argparse
 import os
+
 import numpy as np
 import math
 import subprocess
@@ -329,16 +330,163 @@ def mkCheckFile(args, Debug, messages, HelpList, MaterName):
     print(f"{Color.RED}"
           f"********** Starts generating files for structural verification **********\n"
           f"{Color.RESET}")
-    print("Checking if 'CalcSetting_HB.txt' exists.")
-    if os.path.exists("./CalcSetting_HB.txt"):
-        messages.append("\t>>> CalcSetting_HB.txt: Found")
-        HelpList.append(False)
+
+    # get the tilt angle
+    Tilt, Formated_Tilt = get_TiltAngle(messages, HelpList, MaterName)
+    file_path = f"./StructCheck-{MaterName}-t{Formated_Tilt}d"
+    os.makedirs(file_path, exist_ok=True)
+    Flag_XYZ = args.xyz
+    Temp_SHs = []
+
+    with open(f"{file_path}/G.sh", "w") as f:
+        f.write(Stereotyped.Sh_txt)
+    Temp_SHs.append(f"G.sh")
+
+    if not args.manual:
+        print(f"Automatically generate files for structural verification...")
+
+        File_Name = f"{MaterName}_2mol_t{Formated_Tilt}d_90d-400"
+        Temp_SH = mkFiles(MaterName, "2mol", "", "90d-400", "Temp",
+                          file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+        Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+        messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+
+        File_Name = f"{MaterName}_2mol_t{Formated_Tilt}d_60d-420"
+        Temp_SH = mkFiles(MaterName, "2mol", "", "60d-420", "Temp",
+                          file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+        Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+        messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+
+        File_Name = f"{MaterName}_2mol_t{Formated_Tilt}d_30d-600"
+        Temp_SH = mkFiles(MaterName, "2mol", "", "30d-600", "Temp",
+                          file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+        Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+        messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+
+        File_Name = f"{MaterName}_3molp1_t{Formated_Tilt}d_60d-420-600"
+        Temp_SH = mkFiles(MaterName, "3mol", "p1", "60d-420-600", "Temp",
+                          file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+        Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+        messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+
+        File_Name = f"{MaterName}_3molp2_t{Formated_Tilt}d_60d-420-600"
+        Temp_SH = mkFiles(MaterName, "3mol", "p2", "60d-420-600", "Temp",
+                          file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+        Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+        messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+
+        File_Name = f"{MaterName}_3molp3_t{Formated_Tilt}d_60d-420-600"
+        Temp_SH = mkFiles(MaterName, "3mol", "p3", "60d-420-600", "Temp",
+                          file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+        Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+        messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+
+        help_check_exit(messages, HelpList)
     else:
-        messages.append(f"\t>>> {Color.RED}CalcSetting_HB.txt: NOT Found{Color.RESET}\n"
-                        "\t>>> Make the correct CalcSetting_HB.txt and then restart the program.")
-        HelpList.append(True)
-        with open("CalcSetting_HB.txt", "w") as file:
-            file.write(Stereotyped.CalcSetting_HB)
+        print(f"{Color.RED}Manual mode selected...{Color.RESET}")
+        while True:
+            structure = input(f"{Color.GREEN}Please enter the structure you want to create.{Color.RESET}\n"
+                              f"\t1: 2mol\n"
+                              f"\t2: 3molp1 (H-H)\n"
+                              f"\t3: 3molp2 (T-T)\n"
+                              f"\t4: 3molp3(H-T)\n"
+                              f"\t5: exit\n"
+                              f"\t{Color.GREEN}>>> {Color.RESET}")
+
+            if structure == "5":
+                EXIT = input("\n"
+                             "Do you want to exit the programme?\n"
+                             f"\ty/n {Color.GREEN}>>> {Color.RESET}")
+                if EXIT == "y":
+                    print(f"\t>>> {Color.RED}Exit the programme.{Color.RESET}")
+                    break
+                else:
+                    continue
+
+            while True:
+                Rotate_Angle = input(f"\n"
+                                     f"Please Enter the Rotate Angle.\n"
+                                     f"\t{Color.GREEN}>>> {Color.RESET}")
+                try:
+                    Rotate_Angle = int(Rotate_Angle)
+                    break
+                except (IndexError, ValueError):
+                    print(f"{Color.RED}\tError: Enter a number.{Color.RESET}")
+                    continue
+
+            while True:
+                D_Col = input(f"\n"
+                              f"Please Enter the Column Direction.{Color.GREEN}(Å){Color.RESET}\n"
+                              f"\t{Color.GREEN}>>> {Color.RESET}")
+                try:
+                    D_Col = float(D_Col)
+                    break
+                except (IndexError, ValueError):
+                    print(f"{Color.RED}\tError: Enter a number.{Color.RESET}")
+                    continue
+
+            if structure == "1":
+                messages.append(f"\n{Color.GREEN}Create a file...{Color.RESET}")
+                Temp_Condition = f"{Rotate_Angle}d-{int(D_Col * 100)}"
+                Temp_SH = mkFiles(MaterName, "2mol", "", Temp_Condition, "Temp",
+                                  file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+                File_Name = f"{MaterName}_2mol_t{Formated_Tilt}d_{Temp_Condition}"
+                Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+                messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+                messages.append(f"\n"
+                                f"\t>>> {Color.GREEN}Complete{Color.RESET}\n")
+
+                help_check_exit(messages, HelpList)
+                continue
+            else:
+                while True:
+                    D_Transv = input(f"\n"
+                                     f"Please Enter the Transverse Direction.{Color.GREEN}(Å){Color.RESET}\n"
+                                     f"\t{Color.GREEN}>>> {Color.RESET}")
+                    try:
+                        D_Transv = float(D_Transv)
+                        break
+                    except (IndexError, ValueError):
+                        print(f"{Color.RED}\tError: Enter a number.{Color.RESET}")
+                        continue
+                mol_pos = ""
+                if structure == "2":
+                    mol_pos = "p1"
+                elif structure == "3":
+                    mol_pos = "p2"
+                elif structure == "4":
+                    mol_pos = "p3"
+                Temp_Condition = f"{Rotate_Angle}d-{int(D_Col * 100)}-{int(D_Transv * 100)}"
+                messages.append(f"\n{Color.GREEN}Create a file...{Color.RESET}")
+                Temp_SH = mkFiles(MaterName, "3mol", mol_pos, Temp_Condition, "Temp",
+                                  file_path, Tilt, Formated_Tilt, Flag_XYZ, messages, HelpList)
+                File_Name = f"{MaterName}_2mol_t{Formated_Tilt}d_{Temp_Condition}"
+                Temp_SHs.append(Temp_SH.replace("qsub", "").strip())
+                messages.append(f"\t>>> {File_Name}.gjf: {Color.GREEN}Complete.{Color.RESET}")
+                messages.append(f"\n"
+                                f"\t>>> {Color.GREEN}Complete{Color.RESET}\n")
+
+                help_check_exit(messages, HelpList)
+                continue
+
+    print("\nDelete unnecessary files...")
+    Temp_SHs = list(set(Temp_SHs))
+    for SH in Temp_SHs:
+        try:
+            subprocess.run(["rm", SH], timeout=10, cwd=file_path, check=True, stderr=subprocess.DEVNULL)
+        except subprocess.CalledProcessError:
+            messages.append(f"\t>>> {Color.RED}{SH}: Failed to delete.{Color.RESET}")
+            HelpList.append(True)
+        else:
+            messages.append(f"\t>>> {SH}: {Color.GREEN}Deleted.{Color.RESET}")
+            HelpList.append(False)
+    help_check_exit(messages, HelpList)
+    if Debug:
+        print("*************** Debug Finished!!! ***************")
+    # End of the program
+    print(f"{Color.GREEN}\n"
+          f"************************* ALL PROCESSES END *************************"
+          f"{Color.RESET}\n")
 
 
 # Get the tilt angle
@@ -907,14 +1055,14 @@ def mkFiles(MaterName, Nmol, mol_pos, Condition, Operator, dirpath,
         if Flag_XYZ:
             write_xyz_file(f"{dirpath}/{File_Name}.xyz",
                            Element, Mol1_pos, Mol2_pos)
-            print(f"{dirpath}/{File_Name}.xyz have been created.")
+            messages.append(f"\t>>> {File_Name}.xyz: {Color.GREEN}Complete.{Color.RESET}")
     elif "3mol" in Nmol:
         write_gjf_file(f"{dirpath}/{File_Name}.gjf",
                        Headers, Element, Mol1_pos, Mol2_pos, Mol3_pos)
         if Flag_XYZ:
             write_xyz_file(f"{dirpath}/{File_Name}.xyz",
                            Element, Mol1_pos, Mol2_pos, Mol3_pos)
-            print(f"{dirpath}/{File_Name}.xyz have been created.")
+            messages.append(f"\t>>> {File_Name}.xyz: {Color.GREEN}Complete.{Color.RESET}")
     with open(f"{dirpath}/G.sh", "r") as orgSH:
         lines = orgSH.readlines()
     lines[12] = f"g16 {GJF_Name}\n"
