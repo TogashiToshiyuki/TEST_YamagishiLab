@@ -428,5 +428,10 @@ def getOperator():
     return Operator
 
 
+def MakeFirstCondition(Nmol, MaterName, mol_pos):
+    which = ""
+    RefLines = []
+
+
 if __name__ == "__main__":
     main()
