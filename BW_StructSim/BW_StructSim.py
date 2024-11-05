@@ -305,6 +305,10 @@ def mkCheckFile(args, Debug, messages, HelpList, MaterName):
     Flag_XYZ = args.xyz
     Temp_SHs = []
 
+    with open(f"{file_path}/G.sh", "w") as f:
+        f.write(Stereotyped.Sh_txt)
+    Temp_SHs.append(f"G.sh")
+
 
 # Acquisition of structure
 def structure_acquisition(Nmol):
