@@ -4,7 +4,7 @@
 import functools
 import argparse
 import os
-
+from time import time
 import numpy as np
 import math
 import subprocess
@@ -163,7 +163,7 @@ def main():
     messages, HelpList, MaterName = [], [], ""
 
     # Argument parsing
-    args, MaterName, Debug, Nmol, calculation_tcal_Flag = arg_parser(messages, HelpList)
+    args, MaterName, Debug, Nmol, calculation_tcal_Flag, before = arg_parser(messages, HelpList)
 
     # Get the tilt angle
     Tilt, Formated_Tilt = get_TiltAngle(messages, HelpList, MaterName)
@@ -192,8 +192,10 @@ def main():
     # Save the results
     Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList)
 
+    after = time.time()
     # End of the program
-    print(f"{Color.GREEN}\n"
+    print(f"\n"
+          f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}"
           f"************************* ALL PROCESSES END *************************"
           f"{Color.RESET}\n")
     return
@@ -238,6 +240,8 @@ def arg_parser(messages, HelpList):
     :param HelpList: list of help flags
     :return:
     """
+    before = time.time()
+
     Help_Text = ("Structural optimisation and transfer integration of HerringBone structures.\n"
                  "Pass [molecule name].xyz as the first argument.\n"
                  "Pass the number of mol as the first argument.\n"
@@ -298,7 +302,7 @@ def arg_parser(messages, HelpList):
         HelpList.append(True)
 
     if args.chk:
-        mkCheckFile(args, Debug, messages, HelpList, MaterName)
+        mkCheckFile(args, Debug, messages, HelpList, MaterName, before)
 
     if args.two_mol and args.three_mol:
         messages.append(f"\t>>>{Color.RED}2mol and 3mol cannot be selected at the same time.{Color.RESET}\n")
@@ -322,10 +326,10 @@ def arg_parser(messages, HelpList):
 
     help_check_exit(messages, HelpList)
 
-    return args, MaterName, Debug, Nmol, calculation_tcal_Flag
+    return args, MaterName, Debug, Nmol, calculation_tcal_Flag, before
 
 
-def mkCheckFile(args, Debug, messages, HelpList, MaterName):
+def mkCheckFile(args, Debug, messages, HelpList, MaterName, before):
     print(f"{Color.RED}"
           f"********** Starts generating files for structural verification **********\n"
           f"{Color.RESET}")
@@ -482,10 +486,15 @@ def mkCheckFile(args, Debug, messages, HelpList, MaterName):
     help_check_exit(messages, HelpList)
     if Debug:
         print("*************** Debug Finished!!! ***************")
+
+    after = time.time()
+
     # End of the program
-    print(f"{Color.GREEN}\n"
+    print(f"\n"
+          f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}"
           f"************************* ALL PROCESSES END *************************"
           f"{Color.RESET}\n")
+    exit()
 
 
 # Get the tilt angle
@@ -1271,7 +1280,11 @@ def format_coordinate(coord):
     :param coord:
     :return:
     """
-    return f"{coord[0]: 15.10f}     {coord[1]: 15.10f}     {coord[2]: 15.10f}"
+    x, y, z = map(float, [coord[0], coord[1], coord[2]])
+    x = f'{x:.10f}'.rjust(15, ' ')
+    y = f'{y:.10f}'.rjust(15, ' ')
+    z = f'{z:.10f}'.rjust(15, ' ')
+    return f'{x} {y} {z}'
 
 
 # job submission
