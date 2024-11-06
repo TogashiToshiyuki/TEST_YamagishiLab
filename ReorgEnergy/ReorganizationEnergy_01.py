@@ -607,7 +607,7 @@ def format_atomic_data(data, messages, HelpList):
         help_check_exit(messages, HelpList)
 
         # フォーマットされた行を作成
-        formatted_line = f" {symbol}                 {formatted_coordinate}"
+        formatted_line = f" {symbol:<2}  {formatted_coordinate}"
         formatted_data.append(formatted_line)
 
     return formatted_data
@@ -620,7 +620,11 @@ def format_coordinate(coord):
     :param coord:
     :return:
     """
-    return f"{coord[0]: 11.8f}   {coord[1]: 11.8f}   {coord[2]: 11.8f}"
+    x, y, z = map(float, coord)
+    x = f'{x:.10f}'.rjust(15, ' ')
+    y = f'{y:.10f}'.rjust(15, ' ')
+    z = f'{z:.10f}'.rjust(15, ' ')
+    return f'{x} {y} {z}'
 
 
 # GJFファイルへの書き込み関数
