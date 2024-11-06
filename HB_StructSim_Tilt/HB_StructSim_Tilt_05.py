@@ -4,7 +4,6 @@
 import functools
 import argparse
 import os
-from time import time
 import numpy as np
 import math
 import subprocess
@@ -93,16 +92,26 @@ class Stereotyped:
                       "Tilt Angle: [Number]\n"
                       "\n"
                       "[Comment]\n")
-    InitialCondition_Temp = ("0 7.5\n"
-                             "10 7.0\n"
-                             "20 6.3\n"
-                             "30 5.7\n"
-                             "40 5.0\n"
-                             "50 4.5\n"
-                             "60 4.2\n"
-                             "70 3.9\n"
-                             "80 3.9\n"
-                             "90 3.9")
+    InitialCondition_2mol_Temp = ("0 7.5\n"
+                                  "10 7.0\n"
+                                  "20 6.3\n"
+                                  "30 5.7\n"
+                                  "40 5.0\n"
+                                  "50 4.5\n"
+                                  "60 4.2\n"
+                                  "70 3.9\n"
+                                  "80 3.9\n"
+                                  "90 3.9")
+    InitialCondition_3mol_Temp = ("0 3.9\n"
+                                  "10 3.9\n"
+                                  "20 3.9\n"
+                                  "30 4.2\n"
+                                  "40 4.5\n"
+                                  "50 5.0\n"
+                                  "60 5.7\n"
+                                  "70 6.3\n"
+                                  "80 7.0\n"
+                                  "90 7.5")
 
 
 class Color:
@@ -187,7 +196,7 @@ def main():
 
     # Calculate the transfer integral
     Calculate_TI(calculation_tcal_Flag, tcal_path, MaterName, Nmol, mol_pos,
-                   Formated_Tilt, Debug, messages, HelpList)
+                 Formated_Tilt, Debug, messages, HelpList)
 
     # Save the results
     Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList)
@@ -622,7 +631,12 @@ def File_Set_Check(messages, HelpList, MaterName, Nmol, mol_pos, Formated_Tilt):
                         f"\t    Make the correct InitialCondition_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt "
                         f"and then restart the program.")
         with open(f"InitialCondition_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt", "w") as file:
-            file.write(Stereotyped.InitialCondition_Temp)
+            if "2mol" in Nmol:
+                file.write(Stereotyped.InitialCondition_2mol_Temp)
+            elif "3mol" in Nmol:
+                file.write(Stereotyped.InitialCondition_3mol_Temp)
+            else:
+                file.write(Stereotyped.InitialCondition_2mol_Temp)
         HelpList.append(True)
 
     if "3mol" in Nmol:
@@ -1891,7 +1905,7 @@ def process_file(F_path):
 
 
 def Calculate_TI(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
-                   Formated_Tilt, Debug, messages, HelpList):
+                 Formated_Tilt, Debug, messages, HelpList):
     if calculation_tcal_flag:
         print(f"\n**********\n"
               f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
