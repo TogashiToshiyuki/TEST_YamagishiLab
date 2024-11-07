@@ -165,7 +165,7 @@ def main():
 
     args, MaterName, Debug, Nmol, calculation_tcal_Flag, before = arg_parser(messages, HelpList)
 
-    bw = BrickWall(args.MaterNameXYZ, args)
+    bw = BrickWork(args.MaterNameXYZ, args)
 
     # Define variables
     messages, HelpList, MaterName = [], [], ""
@@ -173,6 +173,8 @@ def main():
     bw.File_Set_Check()
 
     RefLines, dev, which = bw.mkFirstCondition()
+
+    bw.Most_Stable_Structure_Search()
 
 
 # Check if help has occurred, if it has occurred, exit, if it has not occurred, clear messages
@@ -298,7 +300,7 @@ def mkCheckFile(args, Debug, messages, HelpList, MaterName, before):
           f"{Color.RESET}")
 
 
-class BrickWall:
+class BrickWork:
     def __init__(self, file, args):
         self._base_path = os.path.splitext(file)[0]
         self.MaterName = file[:-4]
@@ -549,19 +551,51 @@ class BrickWall:
         SH_Name = f"G-{self.Operator}_{Condition}.sh"
 
         ConditionList = Condition.strip().split("_")
-        Edge_Axis, Face_Axis, Other_Axis, Matrix_Mol3, rotate = self.Axis_Setting_BW(self.messages, self.HelpList)
+        Edge_Axis, Face_Axis, Other_Axis, Matrix_Mol3, rotate = self.Axis_Setting_BW()
+        if "3mol" in self.Nmol:
+            Matrix_Mol3 = {
+                "x": [int(ConditionList[0]), 0, 0],
+                "y": [0, int(ConditionList[0]), 0],
+                "z": [0, 0, int(ConditionList[0])]
+            }[Face_Axis] + Matrix_Mol3
+            Transitions = self.mkTransition(Edge_Axis, Face_Axis, ConditionList[1], ConditionList[2], Matrix_Mol3)
+        else:
+            Transitions = self.mkTransition(Edge_Axis, Face_Axis, ConditionList[0], 0, Matrix_Mol3)
 
-    def Axis_Setting_BW(self, messages, HelpList):
+        Angles = {
+            "": {
+                "x": [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                "y": [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                "z": [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+            },
+            "p1": {
+                "x": [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                "y": [[0, 0, 0], [0, 0, 0], [0, 0, 0]],
+                "z": [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+            },
+            "p2": {
+                "x": [[180, 0, 0], [180, 0, 0], [180, 0, 0]],
+                "y": [[0, 180, 0], [0, 180, 0], [0, 180, 0]],
+                "z": [[0, 0, 180], [0, 0, 180], [0, 0, 180]]
+            },
+            "p3": {
+                "x": [[180, 0, 0], [180, 0, 0], [180, 0, 0]],
+                "y": [[0, 180, 0], [0, 180, 0], [0, 180, 0]],
+                "z": [[0, 0, 180], [0, 0, 180], [0, 0, 180]]
+            }
+        }.get(self.mol_pos).get(Other_Axis)
+
+    def Axis_Setting_BW(self):
         try:
             with open(f"./CalcSetting_BW.txt", "r") as f:
                 lines = f.readlines()
-            HelpList.append(False)
+            self.HelpList.append(False)
         except FileNotFoundError:
             print(f"{Color.RED}CalcSetting_BW.txt: Not exist.{Color.RESET}")
             with open(f"./CalcSetting_BW.txt", "w") as f:
                 f.write(Stereotyped.CalcSet_BW_template)
             print(f"{Color.GREEN}CalcSetting_BW.txt: Created.{Color.RESET}")
-            HelpList.append(True)
+            self.HelpList.append(True)
         self.help_check_exit()
 
         params = {"edge axis": "", "faceon axis": "", "mol3 other_transition": "", "other axis": ""}
@@ -570,26 +604,39 @@ class BrickWall:
             if key in params:
                 params[key] = line.split(":")[1].strip()
 
-        if params["edge axis"] == "x":
-            if params["faceon axis"] == "z":
-                params["other axis"] = "y"
-            elif params["faceon axis"] == "y":
-                params["other axis"] = "z"
-        if params["edge axis"] == "y":
-            if params["faceon axis"] == "x":
-                params["other axis"] = "z"
-            elif params["faceon axis"] == "z":
-                params["other axis"] = "x"
-        if params["edge axis"] == "z":
-            if params["faceon axis"] == "x":
-                params["other axis"] = "y"
-            elif params["faceon axis"] == "y":
-                params["other axis"] = "x"
+        params["other axis"] = {
+            ("x", "z"): "y",
+            ("x", "y"): "z",
+            ("y", "x"): "z",
+            ("y", "z"): "x",
+            ("z", "x"): "y",
+            ("z", "y"): "x"
+        }.get((params["edge axis"], params["faceon axis"]))
 
         axis1 = params["edge axis"]
         axis2 = params["faceon axis"]
         axis3 = params["other axis"]
         rotate = f"{axis1}{axis2}{axis3}"
+
+        axis_pairs = [(axis1, axis2, "Edge", "Faceon"),
+                      (axis1, axis3, "Edge", "Other"),
+                      (axis2, axis3, "Faceon", "Other")]
+
+        for a, b, name1, name2 in axis_pairs:
+            if a == b:
+                self.messages.append(f"{Color.RED}Error: Invalid axis setting.{Color.RESET}\n"
+                                     f"\t>>> The '{Color.RED}{name1}{Color.RESET}' axis and "
+                                     f"the '{Color.RED}{name2}{Color.RESET}' axis cannot be the same.\n"
+                                     f"\t>>> The current setting Edge:   '{Color.RED}{a}{Color.RESET}'.\n"
+                                     f"\t>>> The current setting Faceon: '{Color.RED}{b}{Color.RESET}'.")
+                self.HelpList.append(True)
+        if rotate not in {"xyz", "xzy", "yxz", "yzx", "zxy", "zyx"}:
+            self.messages.append(f"{Color.RED}Error: Invalid axis setting.{Color.RESET}\n"
+                                 f"\t>>> rotate must be one of 'xyz', 'xzy', 'yxz', 'yzx', 'zxy', 'zyx'.\n"
+                                 f"\t>>> The current setting is '{Color.RED}{rotate}{Color.RESET}'.")
+            self.HelpList.append(True)
+
+        self.help_check_exit()
 
         Mol3_Other = self.mkDirection(params["mol3 other_transition"], params["other axis"],
                                       "Mol3 Other Transition")
@@ -618,6 +665,12 @@ class BrickWall:
             self.HelpList.append(True)
         self.help_check_exit()
         return np.array(directions[input_axis])
+
+    def mkTransition(self, Axis_Edge, Axis_Faceon, Direction_Edge, Direction_Faceon, Matrix_Mol3):
+        Edge_transl = self.mkDirection(Direction_Edge, Axis_Edge, "Edge Direction")
+        Faceon_transl = self.mkDirection(Direction_Faceon, Axis_Faceon, "Faceon Direction")
+
+        return [Edge_transl, Faceon_transl, Matrix_Mol3]
 
 
 if __name__ == "__main__":
