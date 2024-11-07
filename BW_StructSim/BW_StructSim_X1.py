@@ -426,7 +426,7 @@ def mkConditionFile(Nmol, mol_pos, which, RefLines, dev):
                 Val = float(line.strip().split()[1])
                 print(Val)
                 print(RefLines[0])
-                RefValues = [RefLines[0], RefLines[0]]
+                RefValues = [RefLines[0], RefLines[1]]
 
             NewCondition = mkNewCondition(Nmol, Other, Val - (2 * dev), which, RefValues)
             NewConditions.append(NewCondition)

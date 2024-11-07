@@ -3,5 +3,7 @@
 *.log
 *.gjf
 *.com
+*.sh
 StructCheck*
 Pentacene_*mol_t*d*
+G.sh
