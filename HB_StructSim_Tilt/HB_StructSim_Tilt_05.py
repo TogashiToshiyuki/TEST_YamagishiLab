@@ -1534,7 +1534,7 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                                 print(f"{Color.RED}Error: {Log} is duplicated.{Color.RESET}")
                                 messages.append(f"{Color.RED}Error: {Log} is duplicated.{Color.RESET}")
                                 HelpList.append(True)
-
+                            help_check_exit(messages, HelpList)
                             rmWildCards(f"{Log}")
 
                 minkey = min(CPE_Dict, key=CPE_Dict.get)
