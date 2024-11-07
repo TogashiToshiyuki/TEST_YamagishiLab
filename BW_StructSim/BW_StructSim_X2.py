@@ -28,7 +28,7 @@ class Stereotyped:
                    "*     - xyz file of the molecule from which the calculations are made.  *\n"
                    "*                                                                       *\n"
                    "*   The following files are also required.                              *\n"
-                   "*     - CalcSetting_HB.txt                                              *\n"
+                   "*     - CalcSetting_BW.txt                                              *\n"
                    "*                                                                       *\n"
                    "*    Option                                                             *\n"
                    "*      - Tilt angle can be added to the molecule                        *\n"
