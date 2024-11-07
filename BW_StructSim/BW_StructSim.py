@@ -592,32 +592,30 @@ class BrickWall:
         rotate = f"{axis1}{axis2}{axis3}"
 
         Mol3_Other = self.mkDirection(params["mol3 other_transition"], params["other axis"],
-                                      "Mol3 Other Transition", messages, HelpList)
+                                      "Mol3 Other Transition")
 
         Matrix_Mol3 = np.array(Mol3_Other)
 
         return params["edge axis"], params["faceon axis"], params["other axis"], Matrix_Mol3, rotate
 
-    def mkDirection(self, axis_direction, input_axis, axis_name, messages, HelpList):
+    def mkDirection(self, axis_direction, input_axis, axis_name):
         """
         Make the direction
         :param axis_direction:
         :param input_axis:
         :param axis_name:
-        :param messages:
-        :param HelpList:
         :return:
         """
         try:
             axis_direction = float(axis_direction)
         except ValueError:
-            messages.append(f"{Color.RED}Error: Invalid {axis_name} direction.{Color.RESET}")
-            HelpList.append(True)
-        help_check_exit(messages, HelpList)
+            self.messages.append(f"{Color.RED}Error: Invalid {axis_name} direction.{Color.RESET}")
+            self.HelpList.append(True)
+        self.help_check_exit()
         directions = {"x": [axis_direction, 0.0, 0.0], "y": [0.0, axis_direction, 0.0], "z": [0.0, 0.0, axis_direction]}
         if input_axis not in directions:
-            messages.append(f"{Color.RED}Error: Invalid {axis_name} axis.{Color.RESET}")
-            HelpList.append(True)
+            self.messages.append(f"{Color.RED}Error: Invalid {axis_name} axis.{Color.RESET}")
+            self.HelpList.append(True)
         self.help_check_exit()
         return np.array(directions[input_axis])
 
