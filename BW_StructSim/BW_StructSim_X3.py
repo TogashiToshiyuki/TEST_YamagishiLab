@@ -209,6 +209,13 @@ class BrickWork:
     def __init__(self, args):
         self.MaterName = args.MaterName
         self.Flag_xyz = args.xyz
+
+        with open(f"{self.MaterName}.xyz", "r") as f:
+            self.NinMol = f.readline()
+            f.readline()
+            self.AtomList = f.readlines()
+
+        # Select the structure of the molecule
         while True:
             mol_pos_number = input(f"\n"
                                    f"Calculation from 3 molecules have been selected.\n"  # 3molでの計算が選ばれました
@@ -227,8 +234,11 @@ class BrickWork:
             else:
                 print(f"{Color.RED}\t Error: Incorrect input.{Color.RESET}")
                 continue
+
         self.mol_pos = f"p{mol_pos_number}"
         self.dirpath = f"./{self.MaterName}_3mol{self.mol_pos}"
+
+        # Retrieve the operator name
         Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
                          "\t>>> The name entered here will be used to identify the operator.\n"
                          f"\tPlease enter the operator.\n"
@@ -239,6 +249,7 @@ class BrickWork:
             pass
         print("")
         self.Operator = Operator
+
         self.messages, self.HelpList = [], []
 
     def help_check_exit(self):
@@ -307,6 +318,12 @@ class BrickWork:
                                  f"\t>>> Please set the calculation conditions in the file.")
         self.help_check_exit()
         return None
+
+    def mkFirstCondition(self):
+        with open(f"{self.MaterName}.xyz", "r") as f:
+            f.readline()
+            f.readline()
+            AtomList = f.readlines()
 
 
 if __name__ == "__main__":
