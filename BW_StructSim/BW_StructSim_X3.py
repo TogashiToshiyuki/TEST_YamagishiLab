@@ -164,6 +164,7 @@ class CheckRequired(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
+# arg_parser
 def arg_parser():
     """
     Argument parser
@@ -209,10 +210,11 @@ def arg_parser():
     return args, before
 
 
+# class BrickWork
 class BrickWork:
     def __init__(self, args):
         self.MaterName = args.MaterName[:-4]
-        self.Flag_xyz = True
+        self.Flag_xyz = args.xyz
         self.Debug = args.debug
 
         with open(f"{self.MaterName}.xyz", "r") as f:
@@ -464,7 +466,7 @@ class BrickWork:
             NewConditions = sorted(set(NewConditions))
             with open(f"./ConditionList_3mol{self.mol_pos}.txt", "w") as f:
                 for Condition in NewConditions:
-                    f.write(f"{Condition}\n")
+                    f.write(f"{Condition}")
             self.messages.append(f"\t>>> ConditionList_3mol{self.mol_pos}.txt: {Color.GREEN}Created.{Color.RESET}")
         self.help_check_exit()
         return None
@@ -479,22 +481,22 @@ class BrickWork:
     @staticmethod
     def mkNewCondition(Other, Val, which, RefValues):
         if which == "Edge":
-            Edge = round(Val, 2)
-            Faceon = RefValues[1]
+            Edge = round(float(Val), 2)
+            Faceon = float(RefValues[1])
         elif which == "Faceon":
-            Edge = RefValues[0]
-            Faceon = round(Val, 2)
+            Edge = float(RefValues[0])
+            Faceon = round(float(Val), 2)
         else:
             Edge = RefValues[0]
             Faceon = RefValues[1]
-        NewCondition = f"{int(Other * 100)}_{int(round(Edge * 100))}_{int(round(Faceon * 100))}"
+        NewCondition = f"{int(Other * 100)}_{int(round(Edge * 100))}_{int(round(Faceon * 100))}\n"
         print(f"\t\t{NewCondition.strip()}")
         return NewCondition
 
     def Most_Stable_Search(self):
-        self.getTemporaryStructure()
+        self.getTemporaryStructure("Edge", 0.2)
 
-    def getTemporaryStructure(self):
+    def getTemporaryStructure(self, which, dev):
         judge = False
         while not judge:
             qsubList = []
@@ -515,8 +517,8 @@ class BrickWork:
                 self.rmWildCards(f"{self.dirpath}/*.chk")
             print("\n**********\nReading Data...\n")
             self.readEnergy()
-            exit()
-        pass
+            judge = self.mkNewConditionLists(which, dev)
+        return None
 
     @staticmethod
     def getConditions(FileName):
@@ -570,11 +572,9 @@ class BrickWork:
 
         self.write_gjf_file(f"{self.dirpath}/{FileName}.gjf",
                             Headers, Element, Mol1_pos, Mol2_pos, Mol3_pos)
-        print(f"{self.dirpath}/{FileName}.gjf have been created.")
         if self.Flag_xyz:
             self.write_xyz_file(f"{self.dirpath}/{FileName}.xyz",
                                 Element, Mol1_pos, Mol2_pos, Mol3_pos)
-            print(f"{self.dirpath}/{FileName}.xyz have been created.")
 
         with open(f"{self.dirpath}/G.sh", "r") as f:
             lines = f.readlines()
@@ -691,7 +691,6 @@ class BrickWork:
         z = f'{z:.10f}'.rjust(15, ' ')
         return f'{x} {y} {z}'
 
-    # job submission
     def job_submission(self, qsubList, which):
         """
         Submit the job
@@ -942,9 +941,131 @@ class BrickWork:
         BSE = float(BSE)
         return CPE, BSE
 
-    def mkNewConditionLists(self):
+    @staticmethod
+    def getRefLines(FileName):
+        RefLines = []
+        with open(FileName, "r") as f:
+            lines = f.readlines()
+
+        for line in lines:
+            contents = line.strip().split()
+            try:
+                float(contents[0])
+                RefLines.append(line.strip())
+            except ValueError:
+                pass
+        return RefLines
+
+    @staticmethod
+    def getRefValues(Other, RefLines):
+        RefValues = ''
+        for RefLine in RefLines:
+            Contents = RefLine.strip().split("\t")
+            try:
+                RefOther = round(float(Contents[0]), 2)
+                if Other == RefOther:
+                    RefValues = [Contents[1], Contents[2]]
+                else:
+                    pass
+            except (ValueError, IndexError):
+                pass
+        return RefValues
+
+    def mkNewConditionLists(self, which, dev):
         with open(f"./{self.MaterName}_3mol{self.mol_pos}_all.txt", "r") as f:
-            Alllines = f.readlines()
+            AllLines = f.readlines()
+
+        OtherList, Judges, Compel_Other, Compel_Val, NewConditions = [], [], [], [], []
+        for AllLine in AllLines:
+            Contents = AllLine.strip().split("\t")
+            try:
+                OtherList.append(round(float(Contents[1]), 2))
+            except (ValueError, IndexError):
+                pass
+        OtherList = sorted(set(OtherList))
+        RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+
+        for Other in OtherList:
+            SV, ValueList = 0, []
+            RefValues = self.getRefValues(Other, RefLines)
+            if which == "Edge":
+                SV = float(RefValues[1])
+            elif which == "Faceon":
+                SV = float(RefValues[0])
+
+            for AllLine in AllLines:
+                Contents = AllLine.strip().split("\t")
+                try:
+                    DataOther = round(float(Contents[1]), 2)
+                    if DataOther == Other:
+                        DataDEdge, DataDFaceon = float(Contents[2]), float(Contents[3])
+                        if which == "Edge":
+                            RefDFaceon = round(float(RefValues[1]), 2)
+                            if DataDFaceon == RefDFaceon:
+                                ValueList.append(DataDEdge)
+                            else:
+                                pass
+                            if Contents[0] == "*":
+                                SV = DataDEdge
+                        elif which == "Faceon":
+                            RefDEdge = round(float(RefValues[0]), 2)
+                            if DataDEdge == RefDEdge:
+                                ValueList.append(DataDFaceon)
+                            else:
+                                pass
+                            if Contents[0] == "*":
+                                SV = DataDFaceon
+                except (ValueError, IndexError):
+                    pass
+            if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
+                Judges.append("complete")
+                print(f"\nThe local minimum by 0.05 step for {Other} was Found;\t{SV}.")
+                print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
+                Compel_Other.append(Other)
+                Compel_Val.append(SV)
+            elif round(SV + dev, 2) in ValueList and round(SV - dev, 2) in ValueList:
+                Judges.append("complete")
+                print(f"\nThe local minimum by {dev} step for {Other} was Found;\t{SV}.")
+                print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
+                Compel_Other.append(Other)
+                Compel_Val.append(SV)
+            elif SV == min(ValueList):
+                Judges.append("not complete")
+                print(f"\nLocal minimum for {Other} was NOT Found in the cycle")
+                print(f"{Color.RED}\tNOT COMPLETE(1)!!{Color.RESET}"
+                      f"{Constant.Cn} new conditions bellow were appended.")
+                for i in range(Constant.Cn):
+                    NewConditions.append(self.mkNewCondition(Other, SV - (dev * (i + 1)), which, RefValues))
+            elif SV == max(ValueList):
+                Judges.append("not complete")
+                print(f"\nLocal minimum for {Other} was NOT Found in the cycle")
+                print(f"{Color.RED}\tNOT COMPLETE(2)!!{Color.RESET}"
+                      f"{Constant.Cn} new conditions bellow were appended.")
+                for i in range(Constant.Cn):
+                    NewConditions.append(self.mkNewCondition(Other, SV + (dev * (i + 1)), which, RefValues))
+        with open(f"./ConditionList_3mol{self.mol_pos}.txt", "r") as f:
+            orgCondition = f.readlines()
+        NewList = sorted(set(orgCondition + NewConditions))
+
+        with open(f"./ConditionList_3mol{self.mol_pos}.txt", "w") as f:
+            for NewCondition in NewList:
+                f.write(f"{NewCondition}")
+        if len(Compel_Other) == 0:
+            print(f"{Color.RED}\nAll the local minimums were NOT found in the cycle.{Color.RESET}")
+        else:
+            print(f"\nLocal minimum was FOUND in {len(Compel_Other)} conditions.")
+            for i in range(len(Compel_Other)):
+                print(f"\t{Compel_Other[i]}: {Compel_Val[i]}")
+
+        Judges = list(set(Judges))
+        if "not complete" in Judges:
+            judge = False
+        elif "complete" in Judges and len(Judges) == 1:
+            judge = True
+        else:
+            judge = False
+
+        return judge
 
 
 if __name__ == "__main__":
