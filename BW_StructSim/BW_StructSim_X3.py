@@ -503,7 +503,7 @@ class BrickWork:
                 f.write(Stereotyped.Sh_txt)
 
             for Condition in Conditions:
-                if os.path.exists(f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.chk"):
+                if os.path.exists(f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.log"):
                     pass
                 else:
                     qsubList.append(self.mkFiles(Condition))
@@ -514,6 +514,7 @@ class BrickWork:
                 self.rmWildCards(f"{self.dirpath}/*.sh*")
                 self.rmWildCards(f"{self.dirpath}/*.chk")
             print("\n**********\nReading Data...\n")
+            self.readEnergy()
             exit()
         pass
 
@@ -538,7 +539,6 @@ class BrickWork:
                           "y": [0, int(Condition[0]) / 100, 0],
                           "z": [0, 0, int(Condition[0]) / 100]
                       }[self.Edge_Axis] + self.Mol3_Other
-        print(f"Matrix_Mol3: {Matrix_Mol3}")
         Transitions = self.mkTransition(self.Edge_Axis, self.Faceon_Axis, Condition[1], Condition[2], Matrix_Mol3)
 
         Angles = {
@@ -919,10 +919,10 @@ class BrickWork:
     @staticmethod
     def getVAL_fromLogName(LogName):
         FileName = LogName.split("/")[-1][:-4]
-        Condition = LogName.split("_")
-        Edge = int(Condition[3] / 100)
-        Faceon = int(Condition[4] / 100)
-        Other = int(Condition[2] / 100)
+        Condition = LogName[:-4].split("/")[-1].split("_")
+        Edge = int(Condition[3]) / 100
+        Faceon = int(Condition[4]) / 100
+        Other = int(Condition[2]) / 100
         return FileName, Edge, Faceon, Other
 
     @staticmethod
@@ -941,6 +941,10 @@ class BrickWork:
         BSE = BSE.strip()
         BSE = float(BSE)
         return CPE, BSE
+
+    def mkNewConditionLists(self):
+        with open(f"./{self.MaterName}_3mol{self.mol_pos}_all.txt", "r") as f:
+            Alllines = f.readlines()
 
 
 if __name__ == "__main__":
