@@ -1780,7 +1780,7 @@ def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos, MaterN
             pass
         else:
             for i in range(n):
-                NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV - dev * (n - i), which, RefValues)
+                NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV - dev * (i + 1), which, RefValues)
                 NewConditions.append(NewCondition)
                 NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV + dev * (i + 1), which, RefValues)
                 NewConditions.append(NewCondition)
