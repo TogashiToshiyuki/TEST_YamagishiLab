@@ -150,7 +150,7 @@ class Constant:
     CycleCondition_n_02 = 1
     CycleCondition_n_01 = 1
     CycleCondition_n_005 = 1
-    initial_offset = 3.0
+    initial_offset = 4.0
 
 
 class CheckRequired(argparse.Action):
