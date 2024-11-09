@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import functools
 import argparse
-import os
-import numpy as np
-import math
-import subprocess
 import datetime
-import time
-import sys
+import functools
 import glob
+import math
+import os
 import random
+import subprocess
+import sys
+import time
+
+import numpy as np
 
 print = functools.partial(print, flush=True)
 
@@ -1521,7 +1522,7 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                             Keys.append(FileName)
                         else:
                             print(f"{Color.RED}Error: {Log} did not finish normally.{Color.RESET}")
-
+                            LogFileName = Log
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "a") as error_log:
                                 Log = Log.split("/")[-1]
                                 Log = Log.split(".")[0]
@@ -1529,13 +1530,12 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                                 error_log.write(f"{Log}\n")
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "r") as error_log:
                                 error_lines = error_log.readlines()
-                            error_lines = list(set(error_lines))
                             if len(error_lines) != len(set(error_lines)):
                                 print(f"{Color.RED}Error: {Log} is duplicated.{Color.RESET}")
                                 messages.append(f"{Color.RED}Error: {Log} is duplicated.{Color.RESET}")
                                 HelpList.append(True)
                             help_check_exit(messages, HelpList)
-                            rmWildCards(f"{Log}")
+                            rmWildCards(LogFileName)
 
                 minkey = min(CPE_Dict, key=CPE_Dict.get)
                 MinimumL.append(minkey)
@@ -1780,7 +1780,7 @@ def mkCycleConditions(RefLines, which, dev, Nmol, Formated_Tilt, mol_pos, MaterN
             pass
         else:
             for i in range(n):
-                NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV - dev * (n - i), which, RefValues)
+                NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV - dev * (i + 1), which, RefValues)
                 NewConditions.append(NewCondition)
                 NewCondition = mkNewCondition(Nmol, float(int(Deg)), SV + dev * (i + 1), which, RefValues)
                 NewConditions.append(NewCondition)

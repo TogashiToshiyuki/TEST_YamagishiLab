@@ -1,0 +1,18 @@
+# ==== Commit Messages ====
+
+# ==== Commit Messages(Template) ====
+
+# Tag: [#issue number] message
+
+# 【sample】
+# feature: トップ画面とサービス画面に共通する【契約プランミニ表示コンポーネント】を作成した
+# fix: #123 利用規約文言の誤字を修正した
+
+# ==== Notice ====
+# why を意識して過去形で書くのがよい
+# issue がちゃんとある場合は楽だけどない場合が多いから、その辺はうまいことする
+
+# ==== Tag ====
+# feature:機能追加・更新
+# refactor:リファクタリング・コードスタイル・コードフォーマット修正など
+# fix:バグ修正
