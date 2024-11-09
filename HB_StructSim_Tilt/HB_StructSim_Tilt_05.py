@@ -1522,7 +1522,7 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                             Keys.append(FileName)
                         else:
                             print(f"{Color.RED}Error: {Log} did not finish normally.{Color.RESET}")
-
+                            LogFileName = Log
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "a") as error_log:
                                 Log = Log.split("/")[-1]
                                 Log = Log.split(".")[0]
@@ -1535,7 +1535,7 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                                 messages.append(f"{Color.RED}Error: {Log} is duplicated.{Color.RESET}")
                                 HelpList.append(True)
                             help_check_exit(messages, HelpList)
-                            rmWildCards(f"{Log}")
+                            rmWildCards(LogFileName)
 
                 minkey = min(CPE_Dict, key=CPE_Dict.get)
                 MinimumL.append(minkey)
