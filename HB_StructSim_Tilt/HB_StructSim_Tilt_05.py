@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import functools
 import argparse
-import os
-import numpy as np
-import math
-import subprocess
 import datetime
-import time
-import sys
+import functools
 import glob
+import math
+import os
 import random
+import subprocess
+import sys
+import time
+
+import numpy as np
 
 print = functools.partial(print, flush=True)
 
@@ -1529,7 +1530,6 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                                 error_log.write(f"{Log}\n")
                             with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_error.log", "r") as error_log:
                                 error_lines = error_log.readlines()
-                            error_lines = list(set(error_lines))
                             if len(error_lines) != len(set(error_lines)):
                                 print(f"{Color.RED}Error: {Log} is duplicated.{Color.RESET}")
                                 messages.append(f"{Color.RED}Error: {Log} is duplicated.{Color.RESET}")
