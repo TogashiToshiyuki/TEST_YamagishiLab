@@ -2,15 +2,17 @@
 # -*- coding: utf-8 -*-
 
 import argparse
-import functools
-import os
-import numpy as np
-import math
 import datetime
+import functools
+import glob
+import math
+import os
+import random
 import subprocess
 import sys
 import time
-import glob
+
+import numpy as np
 
 print = functools.partial(print, flush=True)
 
@@ -27,10 +29,13 @@ def main():
     bw = BrickWork(args)
 
     # Create the first condition
-    bw.mkFirstCondition()
+    bw.mkInitialCondition()
 
     # Search for the most stable structure
-    bw.Most_Stable_Search()
+    MinConditions = bw.Most_Stable_Search()
+
+    # Calculate TIs
+    bw.Calculate_TI(MinConditions)
 
 
 class Stereotyped:
@@ -150,7 +155,7 @@ class Constant:
     CycleCondition_n_02 = 1
     CycleCondition_n_01 = 1
     CycleCondition_n_005 = 1
-    initial_offset = 3.0
+    initial_offset = 4.0
 
 
 class CheckRequired(argparse.Action):
@@ -173,11 +178,11 @@ def arg_parser():
     """
     before = time.time()
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('MaterName',
-                        help="Molecular Name")
+    parser.add_argument('MaterNameXYZ',
+                        help="Molecular_Name.xyz")
     parser.add_argument('--debug', '-d', '-D',
                         help="Start the programme in Debug mode.",
-                        action="store_true")
+                        action="store_false")
     parser.add_argument('--tcal', '-t',
                         help="Argument for not calculating tcal.",
                         action="store_false")
@@ -213,7 +218,7 @@ def arg_parser():
 # class BrickWork
 class BrickWork:
     def __init__(self, args):
-        self.MaterName = args.MaterName[:-4]
+        self.MaterName = args.MaterNameXYZ[:-4]
         self.Flag_xyz = args.xyz
         self.Debug = args.debug
 
@@ -246,7 +251,9 @@ class BrickWork:
         self.dirpath = f"./{self.MaterName}_3mol{self.mol_pos}"
         self.tcalpath = f"./{self.MaterName}_3mol{self.mol_pos}_tcal"
         os.makedirs(self.dirpath, exist_ok=True)
-        os.makedirs(self.tcalpath, exist_ok=True)
+        self.calculation_tcal_flag = args.tcal
+        if self.calculation_tcal_flag:
+            os.makedirs(self.tcalpath, exist_ok=True)
 
         # Retrieve the operator name
         Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
@@ -384,7 +391,9 @@ class BrickWork:
             with open(f"./CalcSetting_BW.txt", "w") as f:
                 f.write(Stereotyped.CalcSet_BW_template)
             self.messages.append(f"\t>>> CalcSetting_BW.txt: {Color.GREEN}Created.{Color.RESET}\n"
-                                 f"\t>>> Please set the calculation conditions in the file.")
+                                 f"\t>>> {Color.GREEN}"
+                                 f"Please set the calculation conditions in the "
+                                 f"{Color.UNDERLINE}'CalcSetting_BW.txt.'{Color.RESET}")
         self.help_check_exit()
 
         if os.path.exists(f"./ConditionList_3mol{self.mol_pos}.txt"):
@@ -401,48 +410,49 @@ class BrickWork:
             with open(f"./InitialCondition_3mol{self.mol_pos}.txt", "w") as f:
                 f.write(Stereotyped.InitialCondition_3mol_Temp)
             self.messages.append(f"\t>>> InitialCondition_3mol{self.mol_pos}.txt: {Color.GREEN}Created.{Color.RESET}\n"
-                                 f"\t>>> Please set the calculation conditions in the file.")
+                                 f"\t>>> {Color.GREEN}"
+                                 f"Please set the calculation conditions in the "
+                                 f"{Color.UNDERLINE}'InitialCondition_3mol{self.mol_pos}.txt'.{Color.RESET}")
         self.help_check_exit()
         return None
 
-    def mkFirstCondition(self):
-        Coordinate_X, Coordinate_Y, Coordinate_Z = [], [], []
-        for Atom in self.AtomList:
-            List = Atom.strip().split()
-            Coordinate_X.append(float(List[1]))
-            Coordinate_Y.append(float(List[2]))
-            Coordinate_Z.append(float(List[3]))
-        List = {
-            "x": [max(Coordinate_X), min(Coordinate_X)],
-            "y": [max(Coordinate_Y), min(Coordinate_Y)],
-            "z": [max(Coordinate_Z), min(Coordinate_Z)]
-        }
-
-        Edge_Max = self.transform_number(List[self.Edge_Axis][0])
-        Edge_Min = self.transform_number(List[self.Edge_Axis][1])
-        Faceon_Max = self.transform_number(List[self.Faceon_Axis][0])
-        Faceon_Min = self.transform_number(List[self.Faceon_Axis][1])
-        Debug_Message_List = [
-            f"Edge Max: {Edge_Max}",
-            f"Edge Min: {Edge_Min}",
-            f"Faceon Max: {Faceon_Max}",
-            f"Faceon Min: {Faceon_Min}"
-        ]
-        self.debug_message(Debug_Message_List)
-        First_Edge = self.transform_number((Edge_Max - Edge_Min) / 2) + Edge_Max + Constant.initial_offset
-        First_Faceon = self.transform_number((Faceon_Max - Faceon_Min) / 2) + Faceon_Max + Constant.initial_offset
-        Debug_Message_List = [
-            f"First Edge: {First_Edge}",
-            f"First Faceon: {First_Faceon}"
-        ]
-        self.debug_message(Debug_Message_List)
-
+    def mkInitialCondition(self):
         # Create the first condition
-        self.messages.append(f"\n{Color.GREEN}Creating the first condition...{Color.RESET}")
+        self.messages.append(f"\n{Color.GREEN}Creating the condition for first cycle...{Color.RESET}")
         if os.path.exists(f"./ConditionList_3mol{self.mol_pos}.txt"):
             self.messages.append(f"\t>>> ConditionList_3mol{self.mol_pos}.txt: {Color.GREEN}Exist.{Color.RESET}\n"
                                  f"\t>>> Performs calculations based on conditions that exist.")
         else:
+            Coordinate_X, Coordinate_Y, Coordinate_Z = [], [], []
+            for Atom in self.AtomList:
+                List = Atom.strip().split()
+                Coordinate_X.append(float(List[1]))
+                Coordinate_Y.append(float(List[2]))
+                Coordinate_Z.append(float(List[3]))
+            List = {
+                "x": [max(Coordinate_X), min(Coordinate_X)],
+                "y": [max(Coordinate_Y), min(Coordinate_Y)],
+                "z": [max(Coordinate_Z), min(Coordinate_Z)]
+            }
+
+            Edge_Max = self.transform_number(List[self.Edge_Axis][0])
+            Edge_Min = self.transform_number(List[self.Edge_Axis][1])
+            Faceon_Max = self.transform_number(List[self.Faceon_Axis][0])
+            Faceon_Min = self.transform_number(List[self.Faceon_Axis][1])
+            Debug_Message_List = [
+                f"Edge Max: {Edge_Max}",
+                f"Edge Min: {Edge_Min}",
+                f"Faceon Max: {Faceon_Max}",
+                f"Faceon Min: {Faceon_Min}"
+            ]
+            self.debug_message(Debug_Message_List)
+            First_Edge = self.transform_number((Edge_Max - Edge_Min) / 2) + Edge_Max + Constant.initial_offset
+            First_Faceon = self.transform_number((Faceon_Max - Faceon_Min) / 2) + Faceon_Max + Constant.initial_offset
+            Debug_Message_List = [
+                f"First Edge: {First_Edge}",
+                f"First Faceon: {First_Faceon}"
+            ]
+            self.debug_message(Debug_Message_List)
             NewConditions, dev = [], 0.2
             self.messages.append(f"\t>>> ConditionList_3mol{self.mol_pos}.txt: Does not Exist.\n"
                                  f"\t>>> {Color.GREEN}Create a new ConditionList.txt{Color.RESET} "
@@ -533,6 +543,16 @@ class BrickWork:
             self.getTemporaryStructure("Edge", dev)
             RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             MostStable = self.CompareStructures(RefLines, temp_structure[-1])
+        MinConditions = self.getMinCondition()
+        print(f"\n{Color.GREEN}The most stable structure has been found at '{len(MinConditions)}' steps.{Color.RESET}")
+        if len(temp_structure) < 500:
+            with open(f"{self.MaterName}_3mol{self.mol_pos}_mins.hist", "w") as f:
+                for i in range(len(temp_structure)):
+                    f.write(f"***** Structures after the '{i + 1}'th cycle *****\n")
+                    Lines = temp_structure[i]
+                    f.writelines(Lines)
+        print(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_mins.hist: Created.")
+        return MinConditions
 
     def getTemporaryStructure(self, which, dev):
         judge = False
@@ -1189,6 +1209,301 @@ class BrickWork:
                     if Contents[1] != RefDcol or Contents[2] != RefDtrv:
                         return False
         return True
+
+    def getMinCondition(self):
+        with open(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt", "r") as f:
+            lines = f.readlines()
+        del lines[0:2]
+        MinConditions = []
+        for line in lines:
+            contents = line.strip().split()
+            Other = int(float(contents[0]) * 100)
+            Edge = int(float(contents[1]) * 100)
+            Faceon = int(float(contents[2]) * 100)
+            MinConditions.append(f"{Other}_{Edge}_{Faceon}")
+        return MinConditions
+
+    def Calculate_TI(self, MinConditions):
+        if self.calculation_tcal_flag:
+            qsubList = []
+            print(f"\n"
+                  f"Copying the com files for minimum energies...")
+            for Condition in MinConditions:
+                command = ["rename", "gjf", "com",
+                           f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.gjf"]
+                self.execute(command, False)
+                command = ["cp", f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.com",
+                           f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.com"]
+                self.execute(command, False)
+                command = ["rename", "com", "gjf",
+                           f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.com"]
+                self.execute(command, False)
+            print(f"\t>>> Com files for minimum energies were copied into {self.tcalpath} folder")
+            self.mkXYZFiles()
+            print(f"\n**********\n"
+                  f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
+            if not os.path.exists(f"./{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"):
+                subprocess.run(["rm", f"./{self.tcalpath}/*.xyz"], shell=True)
+
+                self.XYZ_3mol_to_XYZ_2mol()
+                with open(f"{self.tcalpath}/tcal.sh", "w") as f:
+                    f.write(Stereotyped.tcal_sh_txt)
+                qsubList.append("qsub tcal.sh")
+
+                self.job_submission(qsubList, "tcal")
+
+                if self.Debug:
+                    pass
+                else:
+                    self.rmWildCards(f"{self.tcalpath}/*.sh*")
+                subprocess.run(["rename", "tcal", f"{self.MaterName}_3mol{self.mol_pos}_tcal", "tcal.log"],
+                               cwd=self.tcalpath)
+            else:
+                print(f"\t>>> tcal.log: {Color.GREEN}Already exists!!{Color.RESET}")
+                print(f"\t>>> {Color.GREEN}Calculation of transfer integrals was skipped.{Color.RESET}")
+        else:
+            print(f"\n"
+                  f"**********\n"
+                  f"{Color.GREEN}Calculation of transfer integrals was skipped.{Color.RESET}")
+        self.PhaseCheck()
+        return
+
+    @staticmethod
+    def execute(command_list, TEXT, directory=None):
+        command = ' '.join(command_list)
+        if TEXT:
+            print(f'> {command}')
+
+        res = subprocess.run(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True,
+                             cwd=directory)
+        # python3.6
+
+        # res = subprocess.run(command_list, capture_output=True, text=True)
+        # python3.7 or later
+
+        if res.returncode:
+            print(res.stderr.strip())
+        return
+
+    def mkXYZFiles(self):
+        F_paths = glob.glob(f"{self.tcalpath}/*.com")
+        print(f"\n"
+              f"**********\n"
+              f"Making XYZ files...")
+        if not F_paths:
+            print(f"\t>>> There is NO .com file in the {self.tcalpath} folder.")
+            return
+
+        for F_path in F_paths:
+            self.process_file(F_path)
+
+        ComFileNames = glob.glob(f"{self.tcalpath}/*.com")
+        XYZFileNameList = []
+        for ComFileName in ComFileNames:
+            FormatedComfn = (ComFileName[:-4]).strip().split("/")[-1]
+            XYZFileName = f"{FormatedComfn}.xyz"
+            if self.Debug:
+                print(f"{ComFileName} -> {XYZFileName}")
+            XYZFileNameList.append(XYZFileName)
+            subprocess.run(["newzmat", "-icart", "-oxyz", FormatedComfn, XYZFileName],
+                           timeout=2, cwd=self.tcalpath)
+        Ls = []
+        for XYZFileName in XYZFileNameList:
+            with open(f"{self.tcalpath}/{XYZFileName}", "r") as xyzf:
+                lines = xyzf.readlines()
+            Ls.append(len(lines))
+            with open(f"{self.tcalpath}/{XYZFileName}", "w") as xyzf:
+                xyzf.write(f"{len(lines)}\n")
+                xyzf.write("00000001\n")
+                for line in lines:
+                    xyzf.write(line)
+        print(f"\t>>> {self.tcalpath}/*.xyz: {Color.GREEN}Created!!{Color.RESET} ({len(Ls)} files)")
+        return
+
+    @staticmethod
+    def process_file(F_path):
+        """
+        Process the file
+        :param F_path:
+        :return:
+        """
+        with open(F_path, "r") as f:
+            lines = f.readlines()
+        new_lines = [
+            line.replace("X", "C") if line.strip().split() and line.strip().split()[0] == "X"
+            else line
+            for line in lines
+        ]
+        with open(F_path[:-4] + ".com", "w") as file:
+            file.writelines(new_lines)
+        return
+
+    def XYZ_3mol_to_XYZ_2mol(self):
+        filepaths = glob.glob(f"{self.tcalpath}/*_3mol*.xyz")
+
+        Faults = []
+        print("\nConverting 3mol to 2mol XYZ files...")
+        for filepath in filepaths:
+            Mol1, Mol2, Mol3 = [], [], []
+            file_core = filepath[:-4]
+            with open(filepath, "r") as f:
+                # Read the first line ( the number of atoms )
+                number_atoms = f.readline()
+                Comment = f.readline()
+                coordinates = f.readlines()
+            if self.Debug:
+                self.messages.append("\t>>> " + filepath.strip())
+                self.messages.append(f"\t>>> Number of atoms: {number_atoms.strip()}")
+
+            if int(float(number_atoms)) % 3 != 0:
+                Faults.append(filepath)
+                self.messages.append(f"\t>>> {Color.RED}Error: {filepath} did not divide by 3.{Color.RESET}")
+            else:
+                Atoms_inMol = int(round(float(number_atoms) / 3, 5))
+                for i in range(Atoms_inMol):
+                    Mol1.append(coordinates[i])
+                    Mol2.append(coordinates[i + Atoms_inMol])
+                    Mol3.append(coordinates[i + 2 * Atoms_inMol])
+                Atoms_in_TcalXYZFile = int(round(Atoms_inMol * 2, 3))
+
+                with open(f"{file_core}-12.xyz", "w") as newF12, open(f"{file_core}-23.xyz", "w") as newF23, open(
+                        f"{file_core}-31.xyz", "w") as newF31:
+                    newF12.write(f"{Atoms_in_TcalXYZFile}\n"
+                                 f"{Comment}")
+                    newF23.write(f"{Atoms_in_TcalXYZFile}\n"
+                                 f"{Comment}")
+                    newF31.write(f"{Atoms_in_TcalXYZFile}\n"
+                                 f"{Comment}")
+                    for i in range(Atoms_inMol):
+                        newF12.write(Mol1[i])
+                        newF23.write(Mol2[i])
+                        newF31.write(Mol3[i])
+                    for i in range(Atoms_inMol):
+                        newF12.write(Mol2[i])
+                        newF23.write(Mol3[i])
+                        newF31.write(Mol1[i])
+                self.messages.append(f"\t>>> {file_core}-12.xyz: Created!!")
+                self.messages.append(f"\t>>> {file_core}-23.xyz: Created!!")
+                self.messages.append(f"\t>>> {file_core}-31.xyz: Created!!")
+                os.rename(filepath, f"{file_core}.all")
+        if len(Faults) != 0:
+            for Fault in Faults:
+                self.messages.append(f"\t>>> {Color.RED}Error: {Fault} did not divide by 3.{Color.RESET}")
+            self.HelpList.append(True)
+        else:
+            self.messages.append(f"\n\t>>> {Color.GREEN}XYZ 3mol to 2mol: Succeeded!!{Color.RESET}")
+        self.help_check_exit()
+        return
+
+    def PhaseCheck(self):
+        print("\n**********\nPhase Checking...")
+        chkKEY = "-12"
+        CalCores = self.mkCalCoreList(chkKEY)
+        if len(CalCores) == 0:
+            print(f"\t>>> Any chk file is NOT found in the specified folder.\n"
+                  f"\t>>> The process for phase check was {Color.GREEN}skipped.{Color.RESET}")
+        else:
+            with open(f"{self.tcalpath}/PhaseCheck.txt", "w") as file:
+                file.write("Name\tfor LUMO\tfor HOMO\n")
+                for CalCore in CalCores:
+                    self.mkCubeFile(f"{CalCore}_m1.chk")
+                    self.mkCubeFile(f"{CalCore}_m2.chk")
+
+                    HomoChk = self.ComparePhase(CalCore, "HOMO")
+                    LumoChk = self.ComparePhase(CalCore, "LUMO")
+
+                    file.write(f"{CalCore}\t{LumoChk}\t{HomoChk}\n")
+            if self.Debug:
+                pass
+            else:
+                self.rmWildCards(f"{self.tcalpath}/*.chk")
+                self.rmWildCards(f"{self.tcalpath}/*d-*.log")
+                self.rmWildCards(f"{self.tcalpath}/*.gjf")
+        return
+
+    def mkCalCoreList(self, chkKEY):
+        FileList = glob.glob(f"{self.tcalpath}/*{chkKEY}*")
+        CalCores = []
+        for file in FileList:
+            if "_m1.chk" in file or "_m2.chk" in file:
+                CalCores.append(file[file.rfind("/") + 1:-7])
+            else:
+                pass
+        CalCores = list(set(CalCores))
+        return CalCores
+
+    def mkCubeFile(self, chkfile):
+        def run_command(command, description):
+            subprocess.run(command, cwd=self.tcalpath, timeout=10)
+            print(f"\t{description}: {Color.GREEN}Completed!!{Color.RESET}")
+
+        print(f"For {chkfile} ...")
+        fchk = f"{chkfile[:-4]}.fch"
+        HomoCub = f"{chkfile[:-4]}_HOMO.cub"
+        LumoCub = f"{chkfile[:-4]}_LUMO.cub"
+
+        run_command(["formchk", chkfile, fchk], f"File Conversion ({chkfile} -> {fchk})")
+        run_command(["cubegen", "0", "MO=Homo", fchk, HomoCub, "-2", "h"], f"{HomoCub} has been created")
+        run_command(["cubegen", "0", "MO=Lumo", fchk, LumoCub, "-2", "h"], f"{LumoCub} has been created")
+        run_command(["rm", fchk], f"Removing {fchk}")
+        return
+
+    def ComparePhase(self, CalCore, HomoLumo):
+        """
+        :param CalCore:
+        :param HomoLumo:
+        :return:
+        """
+        Val1 = self.ReadCube(f"{CalCore}_m1_{HomoLumo}.cub")
+        Val2 = self.ReadCube(f"{CalCore}_m2_{HomoLumo}.cub")
+
+        if len(Val1) != len(Val2):
+            return "not available(1) (Different number of grids in the file)"
+
+        PClist = []
+        print(f"{CalCore} {HomoLumo} Data Excerpt")
+        for i in random.sample(range(len(Val1)), min(20, len(Val1))):
+            if abs(Val1[i]) > 1e-7:
+                Val = Val1[i] * Val2[i]
+                print(f"m1 value = {Val1[i]}\tm2 value = {Val2[i]}")
+                PClist.append("Opposit" if Val < 0 else "Same")
+
+        PC = list(set(PClist))
+        if len(PC) == 1:
+            return PC[0]
+        elif len(PC) > 1:
+            return "not available(2)"
+        else:
+            return "not available(3)"
+
+    def ReadCube(self, Cubefile):
+        """
+        Read the cube file
+        :param Cubefile:
+        :return:
+        """
+        with open(f"{self.tcalpath}/{Cubefile}", "r") as file:
+            for _ in range(2):  # skip the first two lines (comment and number of atoms)
+                next(file)
+
+            NumE, Xgrid, Ygrid, Zgrid = (int(next(file).split()[0]) for _ in range(4))
+            for _ in range(NumE):  # skip the number of electrons
+                next(file)
+
+            values = [float(x) for _ in range(Xgrid * Ygrid)
+                      for line in file for x in line.split()]
+
+        subprocess.run(["rm", Cubefile], cwd=self.tcalpath, timeout=10)
+        return values
+
+    def Result_Data_set(self):
+        result_name = f"{self.MaterName}_3mol{self.mol_pos}"
+        result_path = f"{result_name}_result"
+        MinFileName = f"{result_name}_min.txt"
+        TIFileName = f"{result_name}_TIs.txt"
+        AllFileName = f"{result_name}_all.txt"
+        PCFileName = "PhaseCheck.txt"
+        print(f"\n**********\n{Color.GREEN} Resulting Data Set for {result_name}...{Color.RESET}")
 
 
 if __name__ == "__main__":

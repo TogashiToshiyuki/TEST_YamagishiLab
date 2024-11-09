@@ -5,6 +5,7 @@
       <excludeFolder url="file://$MODULE_DIR$/HB_StructSim_Tilt/Pentacene_2mol_t0d" />
       <excludeFolder url="file://$MODULE_DIR$/HB_StructSim_Tilt/StructCheck-Pentacene-t0d" />
       <excludeFolder url="file://$MODULE_DIR$/BW_StructSim/Pentacene_3molp1" />
+      <excludeFolder url="file://$MODULE_DIR$/BW_StructSim/Pentacene_3molp1_tcal" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
