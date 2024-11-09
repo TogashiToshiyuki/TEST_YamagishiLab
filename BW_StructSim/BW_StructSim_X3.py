@@ -150,7 +150,7 @@ class Constant:
     CycleCondition_n_02 = 1
     CycleCondition_n_01 = 1
     CycleCondition_n_005 = 1
-    initial_offset = 4.0
+    initial_offset = 3.0
 
 
 class CheckRequired(argparse.Action):
@@ -246,6 +246,7 @@ class BrickWork:
         self.dirpath = f"./{self.MaterName}_3mol{self.mol_pos}"
         self.tcalpath = f"./{self.MaterName}_3mol{self.mol_pos}_tcal"
         os.makedirs(self.dirpath, exist_ok=True)
+        os.makedirs(self.tcalpath, exist_ok=True)
 
         # Retrieve the operator name
         Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
@@ -496,6 +497,43 @@ class BrickWork:
     def Most_Stable_Search(self):
         self.getTemporaryStructure("Edge", 0.2)
 
+        temp_structure = []
+        MostStable = False
+        dev = 0.2
+        while not MostStable:
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+            temp_structure.append(RefLines)
+            self.mkCycleConditions("Faceon", dev)
+            self.getTemporaryStructure("Faceon", dev)
+            self.mkCycleConditions("Edge", dev)
+            self.getTemporaryStructure("Edge", dev)
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+            MostStable = self.CompareStructures(RefLines, temp_structure[-1])
+
+        MostStable = False
+        dev = 0.1
+        while not MostStable:
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+            temp_structure.append(RefLines)
+            self.mkCycleConditions("Faceon", dev)
+            self.getTemporaryStructure("Faceon", dev)
+            self.mkCycleConditions("Edge", dev)
+            self.getTemporaryStructure("Ddge", dev)
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+            MostStable = self.CompareStructures(RefLines, temp_structure[-1])
+
+        MostStable = False
+        dev = 0.05
+        while not MostStable:
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+            temp_structure.append(RefLines)
+            self.mkCycleConditions("Faceon", dev)
+            self.getTemporaryStructure("Faceon", dev)
+            self.mkCycleConditions("Edge", dev)
+            self.getTemporaryStructure("Edge", dev)
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+            MostStable = self.CompareStructures(RefLines, temp_structure[-1])
+
     def getTemporaryStructure(self, which, dev):
         judge = False
         while not judge:
@@ -718,9 +756,9 @@ class BrickWork:
 
             if Flag:
                 formated_ST = start_time.strftime("%m/%d %H:%M:%S")
-                if which == "DEdge":
+                if which == "Edge":
                     term = "the stable distance in Edge direction"
-                elif which == "DFaceon":
+                elif which == "Faceon":
                     term = "the stable distance in Faceon direction"
                 elif which == "tcal":
                     term = "tcal"
@@ -964,7 +1002,8 @@ class BrickWork:
             try:
                 RefOther = round(float(Contents[0]), 2)
                 if Other == RefOther:
-                    RefValues = [Contents[1], Contents[2]]
+                    RefValues = [round(float(Contents[1]), 2),
+                                 round(float(Contents[2]), 2)]
                 else:
                     pass
             except (ValueError, IndexError):
@@ -1066,6 +1105,90 @@ class BrickWork:
             judge = False
 
         return judge
+
+    def mkCycleConditions(self, which, dev):
+        Others, NewConditions = [], []
+        if dev == 0.2:
+            n = Constant.CycleCondition_n_02
+        elif dev == 0.1:
+            n = Constant.CycleCondition_n_01
+        elif dev == 0.05:
+            n = Constant.CycleCondition_n_005
+        else:
+            n = 1
+
+        RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
+        for RefLine in RefLines:
+            Contents = RefLine.strip().split()
+            try:
+                Others.append(round(float(Contents[0]), 2))
+            except (ValueError, IndexError):
+                pass
+        print(f"\n{Color.GREEN}Creating the new conditions...{Color.RESET}")
+        print("\tNew conditions for the next cycle:")
+        for Other in Others:
+            ValueList = []
+            RefValues = self.getRefValues(Other, RefLines)
+            if which == "Edge":
+                SV = float(RefValues[1])
+            elif which == "Faceon":
+                SV = float(RefValues[0])
+            else:
+                SV = int()
+            with open(f"./{self.MaterName}_3mol{self.mol_pos}_all.txt", "r") as All:
+                AllLines = All.readlines()
+            for AllLine in AllLines:
+                Contents = AllLine.strip().split("\t")
+                try:
+                    DataOther = round(float(Contents[1]), 2)
+                    if DataOther == Other:
+                        DataDEdge, DataDFaceon = float(Contents[2]), float(Contents[3])
+                        if which == "Edge":
+                            RefDFaceon = round(float(RefValues[1]), 2)
+                            if DataDFaceon == RefDFaceon:
+                                ValueList.append(DataDEdge)
+                            else:
+                                pass
+                            if Contents[0] == "*":
+                                SV = DataDEdge
+                        elif which == "Faceon":
+                            RefDEdge = round(float(RefValues[0]), 2)
+                            if DataDEdge == RefDEdge:
+                                ValueList.append(DataDFaceon)
+                            else:
+                                pass
+                            if Contents[0] == "*":
+                                SV = DataDFaceon
+                except (ValueError, IndexError):
+                    pass
+            if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
+                pass
+            else:
+                Debug_message = [f"Other, SV: {Other}, {SV}"]
+                self.debug_message(Debug_message)
+                for i in range(n):
+                    NewConditions.append(self.mkNewCondition(Other, SV - (dev * (i + 1)), which, RefValues))
+                    NewConditions.append(self.mkNewCondition(Other, SV + (dev * (i + 1)), which, RefValues))
+        with open(f"./ConditionList_3mol{self.mol_pos}.txt", "r") as f:
+            orgCondition = f.readlines()
+        NewList = sorted(set(orgCondition + NewConditions))
+        with open(f"./ConditionList_3mol{self.mol_pos}.txt", "w") as f:
+            for NewCondition in NewList:
+                f.write(f"{NewCondition}")
+        return None
+
+    @staticmethod
+    def CompareStructures(RefLines, LinesBefore):
+        for RefLine in RefLines:
+            RefContents = RefLine.strip().split()
+            RefDeg, RefDcol, RefDtrv = RefContents[0], RefContents[1], RefContents[2]
+            for LineBefore in LinesBefore:
+                Contents = LineBefore.strip().split()
+                Deg = Contents[0]
+                if Deg == RefDeg:
+                    if Contents[1] != RefDcol or Contents[2] != RefDtrv:
+                        return False
+        return True
 
 
 if __name__ == "__main__":
