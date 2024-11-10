@@ -155,7 +155,8 @@ class Constant:
     CycleCondition_n_02 = 1
     CycleCondition_n_01 = 1
     CycleCondition_n_005 = 1
-    initial_offset = 4.0
+    initial_offset_Edge = 2.6
+    initial_offset_Faceon = 4.0
 
 
 class CheckRequired(argparse.Action):
@@ -219,7 +220,7 @@ def arg_parser():
 class BrickWork:
     def __init__(self, args):
         self.MaterName = args.MaterNameXYZ[:-4]
-        self.Flag_xyz = args.xyz
+        self.Flag_xyz = True
         self.Debug = args.debug
 
         with open(f"{self.MaterName}.xyz", "r") as f:
@@ -446,8 +447,10 @@ class BrickWork:
                 f"Faceon Min: {Faceon_Min}"
             ]
             self.debug_message(Debug_Message_List)
-            First_Edge = self.transform_number((Edge_Max - Edge_Min) / 2) + Edge_Max + Constant.initial_offset
-            First_Faceon = self.transform_number((Faceon_Max - Faceon_Min) / 2) + Faceon_Max + Constant.initial_offset
+            First_Edge = (self.transform_number((Edge_Max - Edge_Min) / 2) +
+                          Edge_Max + Constant.initial_offset_Edge)
+            First_Faceon = (self.transform_number((Faceon_Max - Faceon_Min) / 2)
+                            + Faceon_Max + Constant.initial_offset_Faceon)
             Debug_Message_List = [
                 f"First Edge: {First_Edge}",
                 f"First Faceon: {First_Faceon}"
@@ -515,6 +518,7 @@ class BrickWork:
             temp_structure.append(RefLines)
             self.mkCycleConditions("Faceon", dev)
             self.getTemporaryStructure("Faceon", dev)
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             self.mkCycleConditions("Edge", dev)
             self.getTemporaryStructure("Edge", dev)
             RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
@@ -527,6 +531,7 @@ class BrickWork:
             temp_structure.append(RefLines)
             self.mkCycleConditions("Faceon", dev)
             self.getTemporaryStructure("Faceon", dev)
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             self.mkCycleConditions("Edge", dev)
             self.getTemporaryStructure("Ddge", dev)
             RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
@@ -539,6 +544,7 @@ class BrickWork:
             temp_structure.append(RefLines)
             self.mkCycleConditions("Faceon", dev)
             self.getTemporaryStructure("Faceon", dev)
+            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             self.mkCycleConditions("Edge", dev)
             self.getTemporaryStructure("Edge", dev)
             RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
@@ -1078,13 +1084,19 @@ class BrickWork:
                     pass
             if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
                 Judges.append("complete")
-                print(f"\nThe local minimum by 0.05 step for {Other} was Found;\t{SV}.")
+                print(f"\nThe local minimum by 0.05Å step for {Other} was Found;\t{SV}.")
+                print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
+                Compel_Other.append(Other)
+                Compel_Val.append(SV)
+            elif round(SV + 0.1, 2) in ValueList and round(SV - 0.1, 2) in ValueList:
+                Judges.append("complete")
+                print(f"\nThe local minimum by 0.1Å step for {Other} was Found;\t{SV}.")
                 print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
                 Compel_Other.append(Other)
                 Compel_Val.append(SV)
             elif round(SV + dev, 2) in ValueList and round(SV - dev, 2) in ValueList:
                 Judges.append("complete")
-                print(f"\nThe local minimum by {dev} step for {Other} was Found;\t{SV}.")
+                print(f"\nThe local minimum by {dev}Å step for {Other} was Found;\t{SV}.")
                 print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
                 Compel_Other.append(Other)
                 Compel_Val.append(SV)
@@ -1183,6 +1195,8 @@ class BrickWork:
                     pass
             if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
                 pass
+            elif round(SV + 0.1, 2) in ValueList and round(SV - 0.1, 2) in ValueList:
+                pass
             else:
                 Debug_message = [f"Other, SV: {Other}, {SV}"]
                 self.debug_message(Debug_message)
@@ -1201,12 +1215,12 @@ class BrickWork:
     def CompareStructures(RefLines, LinesBefore):
         for RefLine in RefLines:
             RefContents = RefLine.strip().split()
-            RefDeg, RefDcol, RefDtrv = RefContents[0], RefContents[1], RefContents[2]
+            RefOther, RefDEdge, RefDFaceon = RefContents[0], RefContents[1], RefContents[2]
             for LineBefore in LinesBefore:
                 Contents = LineBefore.strip().split()
-                Deg = Contents[0]
-                if Deg == RefDeg:
-                    if Contents[1] != RefDcol or Contents[2] != RefDtrv:
+                Other = Contents[0]
+                if Other == RefOther:
+                    if Contents[1] != RefDEdge or Contents[2] != RefDFaceon:
                         return False
         return True
 
