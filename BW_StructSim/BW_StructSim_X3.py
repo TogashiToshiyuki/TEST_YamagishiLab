@@ -111,6 +111,8 @@ class Stereotyped:
     CalcSet_BW_template = ("Edge Axis: [x, y, or z]\n"
                            "Faceon Axis: [x, y, or z]\n"
                            "Mol3 Other_Transition: A.AA\n"
+                           "Initial offset Edge: 2.6\n"
+                           "Initial offset Faceon: 3.8\n"
                            "\n"
                            "[Comment]\n")
     InitialCondition_3mol_Temp = ("-3.0\n"
@@ -167,8 +169,6 @@ class Constant:
     CycleCondition_n_02 = 1
     CycleCondition_n_01 = 1
     CycleCondition_n_005 = 1
-    initial_offset_Edge = 2.6
-    initial_offset_Faceon = 3.8
 
 
 class CheckRequired(argparse.Action):
@@ -298,8 +298,13 @@ class BrickWork:
             print(f"{Color.GREEN}CalcSetting_BW.txt: Created.{Color.RESET}")
             self.HelpList.append(True)
         self.help_check_exit()
-        params = {"edge axis": "", "faceon axis": "", "mol3 other_transition": "", "other axis": ""}
-        for line in lines[:4]:
+        params = {"edge axis": "",
+                  "faceon axis": "",
+                  "mol3 other_transition": "",
+                  "other axis": "",
+                  "initial offset edge": "",
+                  "initial offset faceon": ""}
+        for line in lines[:6]:
             key = line.split(":")[0].strip().lower()
             if key in params:
                 params[key] = line.split(":")[1].strip()
@@ -335,6 +340,8 @@ class BrickWork:
         self.Edge_Axis = params["edge axis"]
         self.Faceon_Axis = params["faceon axis"]
         self.Other_Axis = params["other axis"]
+        self.initial_offset_Edge = float(params["initial offset edge"])
+        self.initial_offset_Faceon = float(params["initial offset faceon"])
         self.rotate = rotate
         self.Mol3_Other = self.mkDirection(
             params["mol3 other_transition"], params["other axis"], "Mol3 Other Transition")
@@ -342,7 +349,9 @@ class BrickWork:
                               f"Faceon Axis: {self.Faceon_Axis}",
                               f"Other Axis: {self.Other_Axis}",
                               f"Rotate: {rotate}",
-                              f"Mol3 Other Transition: {self.Mol3_Other}"]
+                              f"Mol3 Other Transition: {self.Mol3_Other}",
+                              f"Initial offset Edge: {self.initial_offset_Edge}",
+                              f"Initial offset Faceon: {self.initial_offset_Faceon}"]
         self.debug_message(Debug_message_List)
 
         self.mkCheckFile(args, before)
@@ -546,9 +555,9 @@ class BrickWork:
             ]
             self.debug_message(Debug_Message_List)
             First_Edge = (self.transform_number((Edge_Max - Edge_Min) / 2) +
-                          Edge_Max + Constant.initial_offset_Edge)
+                          Edge_Max + self.initial_offset_Edge)
             First_Faceon = (self.transform_number((Faceon_Max - Faceon_Min) / 2)
-                            + Faceon_Max + Constant.initial_offset_Faceon)
+                            + Faceon_Max + self.initial_offset_Faceon)
             Debug_Message_List = [
                 f"First Edge: {First_Edge}",
                 f"First Faceon: {First_Faceon}"
@@ -1356,10 +1365,13 @@ class BrickWork:
             print(f"\n**********\n"
                   f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
             if not os.path.exists(f"./{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"):
-                for Condition in MinConditions:
-                    command = ["rm",
-                               f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.com"]
-                    self.execute(command, False)
+                XYZs = glob.glob(f"{self.tcalpath}/*.xyz")
+                for XYZ in XYZs:
+                    if "_m1.xyz" in XYZ or "_m2.xyz" in XYZ or "-12.xyz" in XYZ or "-23.xyz" in XYZ or "-31.xyz" in XYZ:
+                        XYZ = XYZ.replace("./", "")
+                        os.remove(f"{XYZ}")
+                    else:
+                        pass
                 self.XYZ_3mol_to_XYZ_2mol()
                 with open(f"{self.tcalpath}/tcal.sh", "w") as f:
                     f.write(Stereotyped.tcal_sh_txt)
