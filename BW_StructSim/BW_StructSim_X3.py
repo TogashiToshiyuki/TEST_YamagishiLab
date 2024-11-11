@@ -1630,7 +1630,7 @@ class BrickWork:
             TI_lines = f.readlines()
         del TI_lines[0:2]
 
-        with open(f"{self.tcalpath}/{MinFileName}", "r") as f:
+        with open(f"{MinFileName}", "r") as f:
             Min_lines = f.readlines()
         del Min_lines[0:2]
 
