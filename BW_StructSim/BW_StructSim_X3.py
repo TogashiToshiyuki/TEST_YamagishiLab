@@ -28,7 +28,7 @@ def main():
     # create an instance of the BrickWork class
     bw = BrickWork(args)
 
-    # Create the first condition
+    # Create the Initial condition
     bw.mkInitialCondition()
 
     # Search for the most stable structure
@@ -36,6 +36,15 @@ def main():
 
     # Calculate TIs
     bw.Calculate_TI(MinConditions)
+
+    # Save the results
+    bw.Result_Data_set(before)
+
+    # program end
+    print(f"{Color.GREEN}"
+          f"************************* ALL PROCESSES END *************************"
+          f"{Color.RESET}\n")
+    return
 
 
 class Stereotyped:
@@ -150,13 +159,16 @@ class Color:
 
 
 class Constant:
+    """
+    Constants
+    """
     Cn = 1
     d_another = 0
     CycleCondition_n_02 = 1
     CycleCondition_n_01 = 1
     CycleCondition_n_005 = 1
     initial_offset_Edge = 2.6
-    initial_offset_Faceon = 4.0
+    initial_offset_Faceon = 3.8
 
 
 class CheckRequired(argparse.Action):
@@ -216,7 +228,6 @@ def arg_parser():
     return args, before
 
 
-# class BrickWork
 class BrickWork:
     def __init__(self, args):
         self.MaterName = args.MaterNameXYZ[:-4]
@@ -253,8 +264,6 @@ class BrickWork:
         self.tcalpath = f"./{self.MaterName}_3mol{self.mol_pos}_tcal"
         os.makedirs(self.dirpath, exist_ok=True)
         self.calculation_tcal_flag = args.tcal
-        if self.calculation_tcal_flag:
-            os.makedirs(self.tcalpath, exist_ok=True)
 
         # Retrieve the operator name
         Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
@@ -331,10 +340,23 @@ class BrickWork:
                               f"Mol3 Other Transition: {self.Mol3_Other}"]
         self.debug_message(Debug_message_List)
 
+    # Displays messages and exits if unexpected behavior is detected.
     def help_check_exit(self):
         """
-        Check if the required files exist.
-        :return:
+        Checks for unexpected behaviors and displays accumulated messages.
+
+        This function performs two main tasks:
+
+        1. It displays accumulated messages stored in `self.message`, allowing
+           for effective message management within the program.
+        2. It checks the `HelpList` attribute for any instances of `True`.
+           If `True` is found, indicating an unexpected behavior, the program
+           terminates after displaying an error message.
+
+        :returns: None
+        :raises SystemExit: Terminates the program if `True` is found in
+                            `HelpList`, signaling an abnormal end due to an
+                            unexpected behavior.
         """
         self.message_show()
         if True in self.HelpList:
@@ -369,10 +391,20 @@ class BrickWork:
             pass
         return None
 
+    # checks for required files, halts if missing, and creates templates as needed.
     def File_Set_Check(self):
         """
-        Check if the required files exist.
-        :return:
+        Verify the existence of required files and create templates if missing.
+
+        This function checks for the existence of specific required files for
+        further program execution. If any required file is missing, the program
+        will halt, display the missing files, and optionally create template
+        files as needed. The created templates help guide users in setting up
+        necessary conditions for calculations.
+
+        :return: None
+        :raises FileNotFoundError: If essential files are missing and the user
+            needs to set conditions in the created templates before continuing.
         """
         print(f"{Color.GREEN}Checking the required files...{Color.RESET}")
 
@@ -511,6 +543,7 @@ class BrickWork:
         self.getTemporaryStructure("Edge", 0.2)
 
         temp_structure = []
+        # 0.2
         MostStable = False
         dev = 0.2
         while not MostStable:
@@ -518,12 +551,13 @@ class BrickWork:
             temp_structure.append(RefLines)
             self.mkCycleConditions("Faceon", dev)
             self.getTemporaryStructure("Faceon", dev)
-            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             self.mkCycleConditions("Edge", dev)
             self.getTemporaryStructure("Edge", dev)
             RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             MostStable = self.CompareStructures(RefLines, temp_structure[-1])
 
+        # 0.1
+        print(f"\n{Color.GREEN}**********\nTransition in 0.1-Å increments.\n{Color.RESET}")
         MostStable = False
         dev = 0.1
         while not MostStable:
@@ -531,12 +565,13 @@ class BrickWork:
             temp_structure.append(RefLines)
             self.mkCycleConditions("Faceon", dev)
             self.getTemporaryStructure("Faceon", dev)
-            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             self.mkCycleConditions("Edge", dev)
-            self.getTemporaryStructure("Ddge", dev)
+            self.getTemporaryStructure("Edge", dev)
             RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             MostStable = self.CompareStructures(RefLines, temp_structure[-1])
 
+        # 0.05
+        print(f"\n{Color.GREEN}**********\nTransition in 0.05-Å increments.\n{Color.RESET}")
         MostStable = False
         dev = 0.05
         while not MostStable:
@@ -544,20 +579,23 @@ class BrickWork:
             temp_structure.append(RefLines)
             self.mkCycleConditions("Faceon", dev)
             self.getTemporaryStructure("Faceon", dev)
-            RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             self.mkCycleConditions("Edge", dev)
             self.getTemporaryStructure("Edge", dev)
             RefLines = self.getRefLines(f"./{self.MaterName}_3mol{self.mol_pos}_min.txt")
             MostStable = self.CompareStructures(RefLines, temp_structure[-1])
         MinConditions = self.getMinCondition()
+
         print(f"\n{Color.GREEN}The most stable structure has been found at '{len(MinConditions)}' steps.{Color.RESET}")
+        print("\tMost stable Conditions:")
+        for i in range(len(MinConditions)):
+            print(f"\t\t{MinConditions[i]}")
         if len(temp_structure) < 500:
             with open(f"{self.MaterName}_3mol{self.mol_pos}_mins.hist", "w") as f:
                 for i in range(len(temp_structure)):
                     f.write(f"***** Structures after the '{i + 1}'th cycle *****\n")
                     Lines = temp_structure[i]
                     f.writelines(Lines)
-        print(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_mins.hist: Created.")
+        print(f"\n\t>>> {self.MaterName}_3mol{self.mol_pos}_mins.hist: Created.")
         return MinConditions
 
     def getTemporaryStructure(self, which, dev):
@@ -573,7 +611,7 @@ class BrickWork:
                     pass
                 else:
                     qsubList.append(self.mkFiles(Condition))
-            self.job_submission(qsubList, "DEdge")
+            self.job_submission(qsubList, which, self.dirpath)
             if self.Debug:
                 pass
             else:
@@ -755,11 +793,12 @@ class BrickWork:
         z = f'{z:.10f}'.rjust(15, ' ')
         return f'{x} {y} {z}'
 
-    def job_submission(self, qsubList, which):
+    def job_submission(self, qsubList, which, dirpath):
         """
         Submit the job
         :param qsubList:
         :param which:
+        :param dirpath:
         :return:
         """
         print("\n**********\nJobs are submitting...")
@@ -770,7 +809,7 @@ class BrickWork:
         else:
             for qsub in qsubList:
                 qsub = qsub.split()
-                subprocess.run(qsub, cwd=self.dirpath)
+                subprocess.run(qsub, cwd=dirpath)
 
             Wait_minutes = 2
             MyJobIDList = self.My_JobIDList(qsubList)
@@ -1088,12 +1127,6 @@ class BrickWork:
                 print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
                 Compel_Other.append(Other)
                 Compel_Val.append(SV)
-            elif round(SV + 0.1, 2) in ValueList and round(SV - 0.1, 2) in ValueList:
-                Judges.append("complete")
-                print(f"\nThe local minimum by 0.1Å step for {Other} was Found;\t{SV}.")
-                print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
-                Compel_Other.append(Other)
-                Compel_Val.append(SV)
             elif round(SV + dev, 2) in ValueList and round(SV - dev, 2) in ValueList:
                 Judges.append("complete")
                 print(f"\nThe local minimum by {dev}Å step for {Other} was Found;\t{SV}.")
@@ -1195,8 +1228,6 @@ class BrickWork:
                     pass
             if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
                 pass
-            elif round(SV + 0.1, 2) in ValueList and round(SV - 0.1, 2) in ValueList:
-                pass
             else:
                 Debug_message = [f"Other, SV: {Other}, {SV}"]
                 self.debug_message(Debug_message)
@@ -1231,14 +1262,15 @@ class BrickWork:
         MinConditions = []
         for line in lines:
             contents = line.strip().split()
-            Other = int(float(contents[0]) * 100)
-            Edge = int(float(contents[1]) * 100)
-            Faceon = int(float(contents[2]) * 100)
+            Other = int(round(float(contents[0]) * 100))
+            Edge = int(round(float(contents[1]) * 100))
+            Faceon = int(round(float(contents[2]) * 100))
             MinConditions.append(f"{Other}_{Edge}_{Faceon}")
         return MinConditions
 
     def Calculate_TI(self, MinConditions):
         if self.calculation_tcal_flag:
+            os.makedirs(self.tcalpath, exist_ok=True)
             qsubList = []
             print(f"\n"
                   f"Copying the com files for minimum energies...")
@@ -1252,19 +1284,21 @@ class BrickWork:
                 command = ["rename", "com", "gjf",
                            f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.com"]
                 self.execute(command, False)
-            print(f"\t>>> Com files for minimum energies were copied into {self.tcalpath} folder")
+            print(f"\t>>> {Color.GREEN}Completed!!{Color.RESET}")
             self.mkXYZFiles()
             print(f"\n**********\n"
                   f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
             if not os.path.exists(f"./{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"):
-                subprocess.run(["rm", f"./{self.tcalpath}/*.xyz"], shell=True)
-
+                for Condition in MinConditions:
+                    command = ["rm",
+                               f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.com"]
+                    self.execute(command, False)
                 self.XYZ_3mol_to_XYZ_2mol()
                 with open(f"{self.tcalpath}/tcal.sh", "w") as f:
                     f.write(Stereotyped.tcal_sh_txt)
                 qsubList.append("qsub tcal.sh")
 
-                self.job_submission(qsubList, "tcal")
+                self.job_submission(qsubList, "tcal", self.tcalpath)
 
                 if self.Debug:
                     pass
@@ -1317,7 +1351,7 @@ class BrickWork:
             FormatedComfn = (ComFileName[:-4]).strip().split("/")[-1]
             XYZFileName = f"{FormatedComfn}.xyz"
             if self.Debug:
-                print(f"{ComFileName} -> {XYZFileName}")
+                print(f"\t{FormatedComfn}.com -> {XYZFileName}")
             XYZFileNameList.append(XYZFileName)
             subprocess.run(["newzmat", "-icart", "-oxyz", FormatedComfn, XYZFileName],
                            timeout=2, cwd=self.tcalpath)
@@ -1361,13 +1395,11 @@ class BrickWork:
             Mol1, Mol2, Mol3 = [], [], []
             file_core = filepath[:-4]
             with open(filepath, "r") as f:
-                # Read the first line ( the number of atoms )
+                # Read the first line (the number of atoms)
                 number_atoms = f.readline()
                 Comment = f.readline()
                 coordinates = f.readlines()
-            if self.Debug:
-                self.messages.append("\t>>> " + filepath.strip())
-                self.messages.append(f"\t>>> Number of atoms: {number_atoms.strip()}")
+            self.messages.append("\t" + filepath.strip())
 
             if int(float(number_atoms)) % 3 != 0:
                 Faults.append(filepath)
@@ -1431,7 +1463,7 @@ class BrickWork:
                 pass
             else:
                 self.rmWildCards(f"{self.tcalpath}/*.chk")
-                self.rmWildCards(f"{self.tcalpath}/*d-*.log")
+                self.rmWildCards(f"{self.tcalpath}/*.log")
                 self.rmWildCards(f"{self.tcalpath}/*.gjf")
         return
 
@@ -1510,14 +1542,202 @@ class BrickWork:
         subprocess.run(["rm", Cubefile], cwd=self.tcalpath, timeout=10)
         return values
 
-    def Result_Data_set(self):
+    def Result_Data_set(self, before):
         result_name = f"{self.MaterName}_3mol{self.mol_pos}"
         result_path = f"{result_name}_result"
         MinFileName = f"{result_name}_min.txt"
         TIFileName = f"{result_name}_TIs.txt"
         AllFileName = f"{result_name}_all.txt"
         PCFileName = "PhaseCheck.txt"
-        print(f"\n**********\n{Color.GREEN} Resulting Data Set for {result_name}...{Color.RESET}")
+        Lacks = []
+        print(f"\n**********\n{Color.GREEN}Resulting Data Set for {result_name}...{Color.RESET}")
+        os.makedirs(result_path, exist_ok=True)
+
+        if os.path.isfile(MinFileName) and os.path.isfile(f"{self.tcalpath}/{TIFileName}"):
+            self.combineData(TIFileName, MinFileName, PCFileName, result_path)
+        else:
+            self.copy_file(MinFileName, f"{result_path}/{MinFileName}", Lacks)
+            print("\n")
+
+        print("\tCopying Files required for recalculation...")
+        self.copy_file(AllFileName, f"{result_path}/{AllFileName}", Lacks)
+
+        # MaterName.xyz
+        self.copy_file(f"{self.MaterName}.xyz", f"{result_path}/{self.MaterName}.xyz", Lacks)
+
+        # ConditionList_3mol{self.mol_pos}.txt
+        self.copy_file(f"ConditionList_3mol{self.mol_pos}.txt",
+                       f"{result_path}/ConditionList_3mol{self.mol_pos}.txt", Lacks)
+
+        # CalcSetting_BW.txt
+        self.copy_file("CalcSetting_BW.txt", f"{result_path}/CalcSetting_BW.txt", Lacks)
+
+        # min file
+        self.copy_file(f"{result_name}_min.txt",
+                       f"{result_path}/{result_name}_min.txt", Lacks)
+        self.copy_file(f"{result_name}_mins.hist",
+                       f"{result_path}/{result_name}_mins.hist", Lacks)
+
+        # structure files
+        structure_files = glob.glob(f"{self.tcalpath}/*.all")
+        if not structure_files:
+            print(f"\t>>> There is NO .all file in the {self.tcalpath} folder.")
+            Lacks.append("Structure files")
+        else:
+            print(f"\n\tCopying the structure files...")
+            for file in structure_files:
+                name = os.path.basename(file).replace(".all", "")
+                self.copy_file(file, f"{result_path}/{name}.xyz", Lacks)
+            print(f"\t>>> {Color.GREEN}Structural Files were copied into the {result_path} folder.{Color.RESET}")
+
+        if Lacks:
+            self.messages.append(f"\nSeveral result files were not found in the specific folder:")
+            for lack in Lacks:
+                self.messages.append(f"\t>>> {lack}")
+            self.HelpList.append(True)
+        else:
+            self.messages.append(f"\n\t{Color.GREEN}All files were copied successfully!!{Color.RESET}")
+        self.help_check_exit()
+
+        after = time.time()
+        print(f"\n"
+              f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}")
+        return None
+
+    def copy_file(self, src, dest, lacks_list):
+        if os.path.isfile(src):
+            self.execute(["cp", src, dest], False)
+            print(f"\t>>> {src} copy to {dest}: {Color.GREEN}Complete{Color.RESET}")
+        else:
+            lacks_list.append(src)
+        return
+
+    def combineData(self, TIFileName, MinFileName, PCFileName, result_path):
+        print(f"\tCombining Data...\n")
+        with open(f"{self.tcalpath}/{TIFileName}", "r") as f:
+            TI_lines = f.readlines()
+        del TI_lines[0:2]
+
+        with open(f"{self.tcalpath}/{MinFileName}", "r") as f:
+            Min_lines = f.readlines()
+        del Min_lines[0:2]
+
+        if os.path.exists(f"{self.tcalpath}/{PCFileName}"):
+            with open(f"{self.tcalpath}/{PCFileName}", "r") as f:
+                PC_lines = f.readlines()
+            del PC_lines[0:2]
+        else:
+            PC_lines = []
+
+        if len(TI_lines) == len(Min_lines) * 3:
+            pass
+        else:
+            self.messages.append(f"\t>>>{Color.RED}Error: The numbers of data lines in {MinFileName} "
+                                 f"and {TIFileName} DO NOT match.{Color.RESET}\n"
+                                 f"A file was NOT be changed.")
+            self.HelpList.append(True)
+        self.help_check_exit()
+
+        CombLines = []
+        CombLines12 = []
+        CombLines23 = []
+        CombLines31 = []
+        print("Entry\tAngle\tDcol\tDtrv\tCpCE\tBSE\t**"
+              "\tTI-NLUMO\tTI-LUMO\tTI-HOMO\tTI-NHOMO\t**\tPC (LUMO)\tTI-LUMO\tPC (HOMO)\tTI-HOMO")
+
+        for Min_line in Min_lines:
+            MinData = Min_line.split()
+
+            Entry = (f"{self.MaterName}_3mol{self.mol_pos}"
+                     f"_{int(round(float(MinData[0]) * 100, 5))}"
+                     f"_{int(round(float(MinData[1]) * 100, 5))}"
+                     f"_{int(round(float(MinData[2]) * 100, 5))}")
+
+            for TI_line in TI_lines:
+                TIData = TI_line.split()
+                if (TIData[0] == Entry
+                        or TIData[0] == f"{Entry}-12"
+                        or TIData[0] == f"{Entry}-23"
+                        or TIData[0] == f"{Entry}-31"):
+                    CombLine_temp = (
+                        f"{TIData[0]}\t{MinData[0]}\t{MinData[1]}\t{MinData[2]}\t{MinData[3]}\t{MinData[4]}"
+                        f"\t**\t{TIData[1]}\t{TIData[2]}\t{TIData[3]}\t{TIData[4]}")
+
+                    HomoChk = "yet"
+                    LumoChk = "yet"
+                    if len(PC_lines) != 0:
+                        for PCLine in PC_lines:
+                            PCData = PCLine.split()
+                            if PCData[0].strip() == TIData[0].strip():
+                                LumoChk = PCData[1]
+                                HomoChk = PCData[2]
+                    else:
+                        pass
+
+                    correctTI_LUMO = self.correctTI(LumoChk, TIData[2])
+                    correctTI_HOMO = self.correctTI(HomoChk, TIData[3])
+                    CombLine = f"{CombLine_temp}\t**\t{LumoChk}\t{correctTI_LUMO}\t{HomoChk}\t{correctTI_HOMO}\n"
+                    if TIData[0] == Entry:
+                        CombLines.append(CombLine)
+                    elif TIData[0] == f"{Entry}-12":
+                        CombLines12.append(CombLine)
+                    elif TIData[0] == f"{Entry}-23":
+                        CombLines23.append(CombLine)
+                    elif TIData[0] == f"{Entry}-31":
+                        CombLines31.append(CombLine)
+                    else:
+                        pass
+                else:
+                    pass
+        self.help_check_exit()
+        CombLines.sort()
+        CombLines12.sort()
+        CombLines23.sort()
+        CombLines31.sort()
+        self.saveCombData(f"{self.MaterName}_3mol{self.mol_pos}",
+                          f"{result_path}/{self.MaterName}_3mol{self.mol_pos}_min-TIs.txt", CombLines)
+        self.saveCombData(f"{self.MaterName}_3mol{self.mol_pos}-12",
+                          f"{result_path}/{self.MaterName}_3mol{self.mol_pos}_min-TIs-12.txt", CombLines12)
+        self.saveCombData(f"{self.MaterName}_3mol{self.mol_pos}-23",
+                          f"{result_path}/{self.MaterName}_3mol{self.mol_pos}_min-TIs-23.txt", CombLines23)
+        self.saveCombData(f"{self.MaterName}_3mol{self.mol_pos}-31",
+                          f"{result_path}/{self.MaterName}_3mol{self.mol_pos}_min-TIs-31.txt", CombLines31)
+        print(f"\n"
+              f"\t>>> {Color.GREEN}Combining Data: Succeeded!!{Color.RESET}\n"
+              f"\t>>> {MinFileName} and {TIFileName} were combined into "
+              f"{result_path}/{self.MaterName}_3mol{self.mol_pos}_min-TIs*.txt.\n")
+        return
+
+    @staticmethod
+    def correctTI(PhaseChk, TI):
+        TI = float(TI)
+        if PhaseChk == "Same":
+            CorrectTI = TI
+        elif PhaseChk == "Opposit":
+            CorrectTI = -1 * TI
+        else:
+            CorrectTI = TI
+        return CorrectTI
+
+    @staticmethod
+    def saveCombData(Name, path, List):
+        header = (
+            f"*************** {Name} Minimum Energy and Transfer Integrals ***************\n"
+            "Entry\tAngle (deg.)\tD in col. (Angstrom)\tD in transv. (Angstrom)\t"
+            "Counterpoise corrected energy (AU)\tBSSE energy (AU)\t**\t"
+            "TI-NLUMO (meV)\tTI-LUMO (meV)\tTI-HOMO (meV)\tTI-NHOMO (meV)\t**\t"
+            "PhaseChk (LUMO)\tTI (LUMO)\tPhaseChk (HOMO)\tTI (HOMO)\n"
+        )
+        if len(List) == 0:
+            pass
+        else:
+            with open(path, "w") as File:
+                File.write(header)
+                print(f"\n{header}")
+                for line in List:
+                    File.write(line)
+                    print(line.strip())
+        return
 
 
 if __name__ == "__main__":
