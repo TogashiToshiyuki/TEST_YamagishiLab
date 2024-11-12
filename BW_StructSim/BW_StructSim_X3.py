@@ -26,7 +26,7 @@ def main():
     args, before = arg_parser()
 
     # create an instance of the BrickWork class
-    bw = BrickWork(args)
+    bw = BrickWork(args, before)
 
     # Create the Initial condition
     bw.mkInitialCondition()
@@ -224,10 +224,11 @@ def arg_parser():
 
 
 class BrickWork:
-    def __init__(self, args):
+    def __init__(self, args, before):
         self.MaterName = args.MaterNameXYZ[:-4]
-        self.Flag_xyz = True
+        self.Flag_xyz = args.xyz
         self.Debug = args.debug
+        self.chk = args.chk
 
         with open(f"{self.MaterName}.xyz", "r") as f:
             self.NinMol = f.readline()
@@ -235,41 +236,50 @@ class BrickWork:
             self.AtomList = f.readlines()
 
         # Select the structure of the molecule
-        while True:
-            mol_pos_number = input(f"\n"
-                                   f"Calculation from 3 molecules have been selected.\n"  # 3molでの計算が選ばれました
-                                   f"{Color.GREEN}Please select a structure from 1~3..{Color.RESET}\n"
-                                   f"\t 1: H-H\n"
-                                   f"\t 2: T-T\n"
-                                   f"\t 3: H-T\n"
-                                   f"\t >>> ")
-            try:
-                mol_pos_number = int(mol_pos_number)
-            except (IndexError, ValueError):
-                print(f"{Color.RED}\t Error: Enter a number.{Color.RESET}")
-                continue
-            if mol_pos_number in {1, 2, 3}:
-                break
-            else:
-                print(f"{Color.RED}\t Error: Incorrect input.{Color.RESET}")
-                continue
+        if not self.chk:
+            while True:
+                mol_pos_number = input(f"\n"
+                                       f"Calculation from 3 molecules have been selected.\n"  # 3molでの計算が選ばれました
+                                       f"{Color.GREEN}Please select a structure from 1~3..{Color.RESET}\n"
+                                       f"\t 1: H-H\n"
+                                       f"\t 2: T-T\n"
+                                       f"\t 3: H-T\n"
+                                       f"\t >>> ")
+                try:
+                    mol_pos_number = int(mol_pos_number)
+                except (IndexError, ValueError):
+                    print(f"{Color.RED}\t Error: Enter a number.{Color.RESET}")
+                    continue
+                if mol_pos_number in {1, 2, 3}:
+                    break
+                else:
+                    print(f"{Color.RED}\t Error: Incorrect input.{Color.RESET}")
+                    continue
+            self.mol_pos = f"p{mol_pos_number}"
+        else:
+            self.mol_pos = "p1"
 
-        self.mol_pos = f"p{mol_pos_number}"
         self.dirpath = f"./{self.MaterName}_3mol{self.mol_pos}"
         self.tcalpath = f"./{self.MaterName}_3mol{self.mol_pos}_tcal"
-        os.makedirs(self.dirpath, exist_ok=True)
+        if not self.chk:
+            os.makedirs(self.dirpath, exist_ok=True)
+        else:
+            pass
         self.calculation_tcal_flag = args.tcal
 
         # Retrieve the operator name
-        Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
-                         "\t>>> The name entered here will be used to identify the operator.\n"
-                         f"\tPlease enter the operator.\n"
-                         f"\t{Color.GREEN}>>> {Color.RESET}")
-        if Operator == "":
-            Operator = "ONE"
+        if not self.chk:
+            Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
+                             "\t>>> The name entered here will be used to identify the operator.\n"
+                             f"\tPlease enter the operator.\n"
+                             f"\t{Color.GREEN}>>> {Color.RESET}")
+            if Operator == "":
+                Operator = "ONE"
+            else:
+                pass
+            print("")
         else:
-            pass
-        print("")
+            Operator = "ONE"
         self.Operator = Operator
 
         self.messages, self.HelpList = [], []
@@ -343,6 +353,8 @@ class BrickWork:
                               f"Initial offset Edge: {self.initial_offset_Edge}",
                               f"Initial offset Faceon: {self.initial_offset_Faceon}"]
         self.debug_message(Debug_message_List)
+
+        self.mkCheckFile(args, before)
 
     # Displays messages and exits if unexpected behavior is detected.
     def help_check_exit(self):
@@ -433,25 +445,84 @@ class BrickWork:
                                  f"{Color.UNDERLINE}'CalcSetting_BW.txt.'{Color.RESET}")
         self.help_check_exit()
 
-        if os.path.exists(f"./ConditionList_3mol{self.mol_pos}.txt"):
-            self.messages.append(f"\t>>> ConditionList_3mol{self.mol_pos}.txt: {Color.GREEN}Exist.{Color.RESET}")
-            self.HelpList.append(False)
-        elif os.path.exists(f"./InitialCondition_3mol{self.mol_pos}.txt"):
-            self.messages.append(f"\t>>> InitialCondition_3mol{self.mol_pos}.txt: {Color.GREEN}Exist.{Color.RESET}")
-            self.HelpList.append(False)
+        if not self.chk:
+            if os.path.exists(f"./ConditionList_3mol{self.mol_pos}.txt"):
+                self.messages.append(f"\t>>> ConditionList_3mol{self.mol_pos}.txt: {Color.GREEN}Exist.{Color.RESET}")
+                self.HelpList.append(False)
+            elif os.path.exists(f"./InitialCondition_3mol{self.mol_pos}.txt"):
+                self.messages.append(f"\t>>> InitialCondition_3mol{self.mol_pos}.txt: {Color.GREEN}Exist.{Color.RESET}")
+                self.HelpList.append(False)
+            else:
+                self.messages.append(
+                    f"\t>>> {Color.RED}ConditionList_3mol{self.mol_pos}.txt: Does not Exist.{Color.RESET}\n"
+                    f"\t>>> {Color.RED}InitialCondition_3mol{self.mol_pos}.txt: Does not Exist.{Color.RESET}\n")
+                self.HelpList.append(True)
+                with open(f"./InitialCondition_3mol{self.mol_pos}.txt", "w") as f:
+                    f.write(Stereotyped.InitialCondition_3mol_Temp)
+                self.messages.append(f"\t>>> InitialCondition_3mol{self.mol_pos}.txt: "
+                                     f"{Color.GREEN}Created.{Color.RESET}\n"
+                                     f"\t>>> {Color.GREEN}"
+                                     f"Please set the calculation conditions in the "
+                                     f"{Color.UNDERLINE}'InitialCondition_3mol{self.mol_pos}.txt'.{Color.RESET}")
+            self.help_check_exit()
         else:
-            self.messages.append(
-                f"\t>>> {Color.RED}ConditionList_3mol{self.mol_pos}.txt: Does not Exist.{Color.RESET}\n"
-                f"\t>>> {Color.RED}InitialCondition_3mol{self.mol_pos}.txt: Does not Exist.{Color.RESET}\n")
-            self.HelpList.append(True)
-            with open(f"./InitialCondition_3mol{self.mol_pos}.txt", "w") as f:
-                f.write(Stereotyped.InitialCondition_3mol_Temp)
-            self.messages.append(f"\t>>> InitialCondition_3mol{self.mol_pos}.txt: {Color.GREEN}Created.{Color.RESET}\n"
-                                 f"\t>>> {Color.GREEN}"
-                                 f"Please set the calculation conditions in the "
-                                 f"{Color.UNDERLINE}'InitialCondition_3mol{self.mol_pos}.txt'.{Color.RESET}")
-        self.help_check_exit()
+            pass
         return None
+
+    def mkCheckFile(self, args, before):
+        if self.chk:
+            pass
+        else:
+            return None
+        print(f"{Color.RED}"
+              f"********** Starts generating files for structural verification **********\n"
+              f"{Color.RESET}")
+
+        filepath = f"./StructCheck-{self.MaterName}"
+        os.makedirs(filepath, exist_ok=True)
+        Temp_SHs = []
+
+        with open(f"{filepath}/G.sh", "w") as f:
+            f.write(Stereotyped.Sh_txt)
+        Temp_SHs.append(f"G.sh")
+        if not args.manual:
+            print(f"Automatically generate files for structural verification...")
+            self.mol_pos = "p1"
+            Temp_SHs.append(self.mkFiles("0_1800_400", filepath).replace("qsub ", ""))
+            self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
+
+            self.mol_pos = "p2"
+            self.mkFiles("0_1800_400", filepath)
+            self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
+
+            self.mol_pos = "p3"
+            self.mkFiles("0_1800_400", filepath)
+            self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
+            self.help_check_exit()
+
+        print("\nDelete unnecessary files...")
+        Temp_SHs = list(set(Temp_SHs))
+        for SH in Temp_SHs:
+            try:
+                subprocess.run(["rm", SH], timeout=10, cwd=filepath, check=True, stderr=subprocess.DEVNULL)
+            except subprocess.CalledProcessError:
+                self.messages.append(f"\t>>> {Color.RED}{SH}: Failed to delete.{Color.RESET}")
+                self.HelpList.append(True)
+            else:
+                self.messages.append(f"\t>>> {SH}: {Color.GREEN}Deleted.{Color.RESET}")
+                self.HelpList.append(False)
+        self.help_check_exit()
+        if self.Debug:
+            print("*************** Debug Finished!!! ***************")
+
+        after = time.time()
+
+        # End of the program
+        print(f"\n"
+              f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}"
+              f"************************* ALL PROCESSES END *************************"
+              f"{Color.RESET}\n")
+        exit()
 
     def mkInitialCondition(self):
         # Create the first condition
@@ -614,7 +685,7 @@ class BrickWork:
                 if os.path.exists(f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.log"):
                     pass
                 else:
-                    qsubList.append(self.mkFiles(Condition))
+                    qsubList.append(self.mkFiles(Condition, self.dirpath))
             self.job_submission(qsubList, which, self.dirpath)
             if self.Debug:
                 pass
@@ -635,7 +706,7 @@ class BrickWork:
             Condition.append(line.strip())
         return Condition
 
-    def mkFiles(self, Condition):
+    def mkFiles(self, Condition, dirpath):
         FileName = f"{self.MaterName}_3mol{self.mol_pos}_{Condition}"
         CHK_FileName = f"{FileName}.chk"
         GJF_FileName = f"{FileName}.gjf"
@@ -676,16 +747,17 @@ class BrickWork:
         os.remove(f"Temp_Header_3mol.txt")
         Headers[3] = f"%chk={CHK_FileName}\n"
 
-        self.write_gjf_file(f"{self.dirpath}/{FileName}.gjf",
+        self.write_gjf_file(f"{dirpath}/{FileName}.gjf",
                             Headers, Element, Mol1_pos, Mol2_pos, Mol3_pos)
         if self.Flag_xyz:
-            self.write_xyz_file(f"{self.dirpath}/{FileName}.xyz",
+            self.write_xyz_file(f"{dirpath}/{FileName}.xyz",
                                 Element, Mol1_pos, Mol2_pos, Mol3_pos)
+            self.messages.append(f"\t>>> {FileName}.xyz: Created.")
 
-        with open(f"{self.dirpath}/G.sh", "r") as f:
+        with open(f"{dirpath}/G.sh", "r") as f:
             lines = f.readlines()
         lines[12] = f"g16 {GJF_FileName}\n"
-        with open(f"{self.dirpath}/{SH_FileName}", "w") as f:
+        with open(f"{dirpath}/{SH_FileName}", "w") as f:
             f.writelines(lines)
         qsub_temp = f"qsub {SH_FileName}"
         return qsub_temp
@@ -1313,6 +1385,7 @@ class BrickWork:
                     self.rmWildCards(f"{self.tcalpath}/*.sh*")
                 subprocess.run(["rename", "tcal", f"{self.MaterName}_3mol{self.mol_pos}_tcal", "tcal.log"],
                                cwd=self.tcalpath)
+                self.readlog()
             else:
                 print(f"\t>>> tcal.log: {Color.GREEN}Already exists!!{Color.RESET}")
                 print(f"\t>>> {Color.GREEN}Calculation of transfer integrals was skipped.{Color.RESET}")
@@ -1447,6 +1520,46 @@ class BrickWork:
             self.messages.append(f"\n\t>>> {Color.GREEN}XYZ 3mol to 2mol: Succeeded!!{Color.RESET}")
         self.help_check_exit()
         return
+
+    def readlog(self):
+        print(f"\nReading the Tcal log file...")
+        filepath = f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"
+        output_filepath = f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_TIs.txt"
+        with open(filepath, "r") as f:
+            lines = f.readlines()
+
+        DataList = []
+        keywords = ["Input File Name:", "NLUMO", "LUMO", "HOMO", "NHOMO"]
+        for line in lines:
+            for keyword in keywords:
+                if keyword in line:
+                    DataList.append(line)
+                    break
+        if len(DataList) % 5 != 0:
+            self.messages.append(f"\t>>> {Color.RED}Error: UNEXPECTED ERROR in read Tcal log process.{Color.RESET}")
+            self.HelpList.append(True)
+            self.help_check_exit()
+
+        with open(output_filepath, "w") as file:
+            header = (f"***** Transfer Integrals in "
+                      f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log *****\n")
+            columns = "input file\tNLUMO (meV)\tLUMO (meV)\tHOMO (meV)\tNHOMO (meV)\n"
+            file.write(header + columns)
+            print(header.strip())
+            print(columns.strip())
+            for i in range(0, len(DataList), 5):
+                input_file = DataList[i].split(": ")[1].split(".xyz")[0]
+                NLUMO = self.extract_value(DataList[i + 1], "NLUMO")
+                LUMO = self.extract_value(DataList[i + 2], "LUMO")
+                HOMO = self.extract_value(DataList[i + 3], "HOMO")
+                NHOMO = self.extract_value(DataList[i + 4], "NHOMO")
+                file.write(f"{input_file}\t{NLUMO}\t{LUMO}\t{HOMO}\t{NHOMO}\n")
+                print(f"{input_file}\t{NLUMO}\t{LUMO}\t{HOMO}\t{NHOMO}")
+        return
+
+    @staticmethod
+    def extract_value(line, keyword):
+        return float(line.split(keyword)[-1].split()[0])
 
     def PhaseCheck(self):
         print("\n**********\nPhase Checking...")
@@ -1614,7 +1727,7 @@ class BrickWork:
     def copy_file(self, src, dest, lacks_list):
         if os.path.isfile(src):
             self.execute(["cp", src, dest], False)
-            print(f"\t>>> {src} copy to {dest}: {Color.GREEN}Complete{Color.RESET}")
+            print(f"\t>>> {src} -> {dest}: {Color.GREEN}Complete{Color.RESET}")
         else:
             lacks_list.append(src)
         return
