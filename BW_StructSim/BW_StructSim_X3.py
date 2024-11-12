@@ -182,7 +182,6 @@ class CheckRequired(argparse.Action):
         setattr(namespace, self.dest, values)
 
 
-# arg_parser
 def arg_parser():
     """
     Argument parser
@@ -353,7 +352,7 @@ class BrickWork:
                               f"Initial offset Faceon: {self.initial_offset_Faceon}"]
         self.debug_message(Debug_message_List)
 
-        self.mkCheckFile(args, before)
+        self.mkCheckFile(before)
 
     # Displays messages and exits if unexpected behavior is detected.
     def help_check_exit(self):
@@ -468,7 +467,7 @@ class BrickWork:
             pass
         return None
 
-    def mkCheckFile(self, args, before):
+    def mkCheckFile(self, before):
         if self.chk:
             pass
         else:
@@ -522,7 +521,25 @@ class BrickWork:
               f"{Color.RESET}\n")
         exit()
 
+    # Generates initial molecular stability conditions, creating a file if none exists.
     def mkInitialCondition(self):
+        """
+        Create initial condition for molecular stability exploration.
+
+        This function generates the starting conditions necessary for
+        exploring the stability of molecular structures. It first checks
+        for an existing condition file (`ConditionList_3mol{self.mol_pos}.txt`);
+        if found, it proceeds with calculations based on the existing
+        conditions. Otherwise, it calculates the boundary coordinates
+        of each axis (X, Y, Z) from `AtomList` to determine max and
+        min values, subsequently used to calculate initial positioning
+        for `Edge` and `Faceon` axes. The function then generates a list
+        of conditions, storing the results in a newly created condition
+        file if no prior file exists.
+
+        :return None
+        :exception FileNotFoundError: If the required file is missing.
+        """
         # Create the first condition
         self.messages.append(f"\n{Color.GREEN}Creating the condition for first cycle...{Color.RESET}")
         if os.path.exists(f"./ConditionList_3mol{self.mol_pos}.txt"):
@@ -612,7 +629,26 @@ class BrickWork:
         print(f"\t\t{NewCondition.strip()}")
         return NewCondition
 
+    # This function refines molecular structure to find the most stable configuration.
     def Most_Stable_Search(self):
+        """
+        Search for the most stable molecular structure configuration.
+
+        This function systematically refines the structure of a molecule
+        to find the most stable configuration through incremental
+        adjustments. The refinement process occurs in three stages, with
+        adjustments of 0.2 Å, 0.1 Å, and 0.05 Å in molecular positioning.
+        At each stage, the structure is compared to previous configurations
+        until the most stable arrangement is identified. The function
+        outputs the minimal structural conditions and saves each stage's
+        results to a history file for further analysis.
+
+        :returns: A list of the most stable configuration parameters.
+
+        :raises FileNotFoundError: If reference structure files are not
+            found.
+        :raises IOError: If there are issues writing to the history file.
+        """
         self.getTemporaryStructure("Edge", 0.2)
 
         temp_structure = []
@@ -671,7 +707,31 @@ class BrickWork:
         print(f"\n\t>>> {self.MaterName}_3mol{self.mol_pos}_mins.hist: Created.")
         return MinConditions
 
+    # Generate and submit molecular structure jobs, updating conditions until completion.
     def getTemporaryStructure(self, which, dev):
+        """
+        Create and submit jobs for structure generation and update conditions.
+
+        This function manages the generation of temporary molecular structures
+        by iterating over a list of conditions, submitting batch jobs, and
+        handling file cleanup based on debug mode. It stops once new condition
+        lists are successfully generated.
+
+        :param which: Specifies the type of condition list to be created.
+        :type which: str
+        :param dev: Determines the threshold for condition update decision.
+        :type dev: float
+
+        :return: None
+
+        This function operates by reading the conditions from a specified file,
+        generating necessary files for each condition, submitting the batch jobs
+        using `job_submission`, and cleaning up unnecessary files based on debug
+        settings. It reads energy data and generates new condition lists, which
+        serve as the function’s exit criterion.
+
+        If `Debug` mode is on, cleanup is bypassed for the generated files.
+        """
         judge = False
         while not judge:
             qsubList = []
