@@ -277,6 +277,7 @@ def arg_parser():
     return args, before
 
 
+# Class for BW calculation
 class BrickWork:
     def __init__(self, args, before):
         self.MaterName = args.MaterNameXYZ[:-4]
