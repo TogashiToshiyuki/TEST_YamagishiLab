@@ -207,11 +207,6 @@ def arg_parser():
                         nargs='?',
                         const=True, default=False,
                         help='Create .xyz files')
-    parser.add_argument('--manual', '-m',
-                        action=CheckRequired,
-                        nargs='?',
-                        const=True, default=False,
-                        help='Create files of any condition')
 
     args = parser.parse_args()
 
