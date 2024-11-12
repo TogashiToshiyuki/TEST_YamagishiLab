@@ -183,6 +183,9 @@ class Color:
     """
     ANSI escape code for color
     """
+
+    def __init__(self):
+        self._Color = "Color"
     BLACK = '\033[30m'  # black
     RED = '\033[31m'  # red
     GREEN = '\033[32m'  # green
@@ -211,8 +214,11 @@ class Color:
 
 class Constant:
     """
-    Constants
+    Constants used in the program
     """
+
+    def __init__(self):
+        self._Constant = "Constant"
     Cn = 1
     d_another = 0
     CycleCondition_n_02 = 1
@@ -271,6 +277,7 @@ def arg_parser():
     return args, before
 
 
+# Class for BW calculation
 class BrickWork:
     def __init__(self, args, before):
         self.MaterName = args.MaterNameXYZ[:-4]
