@@ -1,6 +1,55 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# ------------------------------------------------------------------------------
+# 作成者: 富樫稔幸(富山高専)
+# プログラムの説明: BW構造の最安定構造を探索し、TIを計算するプログラム
+# バージョン: 1.0(開発バージョンX3から派生)
+# 作成日: 2024/11/12
+# 更新履歴:
+#   [2024-11-12] - [1.0] - [初版作成]
+#
+# 使用方法:
+#   BW_StructSim_01.py [Molecular_Name.xyz] [Options]
+#  Options:
+#   -d, -D, --debug: デバッグモードでプログラムを開始します。
+#   -t, --tcal: tcalの計算を行わないための引数です。
+#   -c, --chk: 構造を確認します。
+#   --xyz, --XYZ: .xyzファイルを作成します。
+#
+# 依存関係:
+#   - numpy
+#   - subprocess
+#   - argparse
+#   - os
+#   - sys
+#   - time
+#   - math
+#   - random
+#   - datetime
+#   - functools
+#   - glob
+#   ガウシアンの以下のコマンドを利用しています。
+#   - g16
+#   - newzmat
+#   - formchk
+#   - cubegen
+#
+# 注意事項:
+#   - [環境によって変更が必要な部分]
+#   - NITT WS用に作成されています。他の環境で使用する場合は、適宜調整が必要です。
+#   - 以下の部分を変える必要があるかもしれません。
+#       - クラス"StandardPhrases"の内容
+#       - クラス"Constant"の内容
+#       - 関数"job_submission"内の、ジョブの実行コマンド
+#   - デバッグモードを使用する場合、.chkファイルなどの削除が行われません。
+#   - 容量を節約するため、デバッグモードを使用する場合は、適宜ファイルの削除を行ってください。
+#   - [その他、注意すべき点]
+#   - このプログラムは、最安定構造を探索するため、計算時間がかかります。
+#   - このプログラムは、計算機リソースを多く使用します。
+#   - Class Constantの値を変更することで、計算時間を短縮できる可能性があります。
+# ------------------------------------------------------------------------------
+
 import argparse
 import datetime
 import functools
@@ -20,7 +69,7 @@ print = functools.partial(print, flush=True)
 def main():
     # program start
     # View Program Overview
-    print(Stereotyped.ProgramAbst)
+    print(StandardPhrases.ProgramAbst)
 
     # argument parser
     args, before = arg_parser()
@@ -47,14 +96,14 @@ def main():
     return
 
 
-class Stereotyped:
+class StandardPhrases:
     def __init__(self):
-        self._stereotype = "Stereotyped"
+        self._StandardPhrases = "StandardPhrases"
 
     ProgramAbst = ("\n"
                    "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n"
                    "*   To Search the energetically stable aggregation                      *\n"
-                   "*            for Herringbone (HB) aggregation                           *\n"
+                   "*            for BrickWork (BW) aggregation                             *\n"
                    "*                                                                       *\n"
                    "*   The programme requires the following arguments.                     *\n"
                    "*     - xyz file of the molecule from which the calculations are made.  *\n"
@@ -64,7 +113,7 @@ class Stereotyped:
                    "*                                                                       *\n"
                    "*    Option                                                             *\n"
                    "*      - Tilt angle can be added to the molecule                        *\n"
-                   "*                          created by Toshiyuki Togashi 2024/10/31      *\n"
+                   "*                          created by Toshiyuki Togashi 2024/11/12      *\n"
                    "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n")
     AbnormalEnd = "\n************* Programme DID NOT terminate successfully. *************\n"
     HelpText = ("\n"
@@ -194,7 +243,7 @@ def arg_parser():
                         help="Molecular_Name.xyz")
     parser.add_argument('--debug', '-d', '-D',
                         help="Start the programme in Debug mode.",
-                        action="store_false")
+                        action="store_true")
     parser.add_argument('--tcal', '-t',
                         help="Argument for not calculating tcal.",
                         action="store_false")
@@ -292,7 +341,7 @@ class BrickWork:
         except FileNotFoundError:
             print(f"{Color.RED}CalcSetting_BW.txt: Not exist.{Color.RESET}")
             with open(f"./CalcSetting_BW.txt", "w") as f:
-                f.write(Stereotyped.CalcSet_BW_template)
+                f.write(StandardPhrases.CalcSet_BW_template)
             print(f"{Color.GREEN}CalcSetting_BW.txt: Created.{Color.RESET}")
             self.HelpList.append(True)
         self.help_check_exit()
@@ -374,7 +423,7 @@ class BrickWork:
         """
         self.message_show()
         if True in self.HelpList:
-            print(f"{Color.RED}{Stereotyped.AbnormalEnd}{Color.RESET}")
+            print(f"{Color.RED}{StandardPhrases.AbnormalEnd}{Color.RESET}")
             exit()
         else:
             pass
@@ -436,7 +485,7 @@ class BrickWork:
             self.messages.append(f"\t>>> {Color.RED}CalcSetting_BW.txt: Does not Exist.{Color.RESET}")
             self.HelpList.append(True)
             with open(f"./CalcSetting_BW.txt", "w") as f:
-                f.write(Stereotyped.CalcSet_BW_template)
+                f.write(StandardPhrases.CalcSet_BW_template)
             self.messages.append(f"\t>>> CalcSetting_BW.txt: {Color.GREEN}Created.{Color.RESET}\n"
                                  f"\t>>> {Color.GREEN}"
                                  f"Please set the calculation conditions in the "
@@ -456,7 +505,7 @@ class BrickWork:
                     f"\t>>> {Color.RED}InitialCondition_3mol{self.mol_pos}.txt: Does not Exist.{Color.RESET}\n")
                 self.HelpList.append(True)
                 with open(f"./InitialCondition_3mol{self.mol_pos}.txt", "w") as f:
-                    f.write(Stereotyped.InitialCondition_3mol_Temp)
+                    f.write(StandardPhrases.InitialCondition_3mol_Temp)
                 self.messages.append(f"\t>>> InitialCondition_3mol{self.mol_pos}.txt: "
                                      f"{Color.GREEN}Created.{Color.RESET}\n"
                                      f"\t>>> {Color.GREEN}"
@@ -481,7 +530,7 @@ class BrickWork:
         Temp_SHs = []
 
         with open(f"{filepath}/G.sh", "w") as f:
-            f.write(Stereotyped.Sh_txt)
+            f.write(StandardPhrases.Sh_txt)
         Temp_SHs.append(f"G.sh")
         print(f"Automatically generate files for structural verification...")
         self.mol_pos = "p1"
@@ -737,7 +786,7 @@ class BrickWork:
             qsubList = []
             Conditions = self.getConditions(f"./ConditionList_3mol{self.mol_pos}.txt")
             with open(f"{self.dirpath}/G.sh", "w") as f:
-                f.write(Stereotyped.Sh_txt)
+                f.write(StandardPhrases.Sh_txt)
 
             for Condition in Conditions:
                 if os.path.exists(f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.log"):
@@ -799,7 +848,7 @@ class BrickWork:
         Element, Mol1_pos, Mol2_pos, Mol3_pos = self.mkAtomList(Angles[0], Angles[1], Angles[2], Transitions)
 
         with open(f"Temp_Header_3mol.txt", "w") as temp_header:
-            temp_header.write(Stereotyped.Header_3mol)
+            temp_header.write(StandardPhrases.Header_3mol)
         with open(f"Temp_Header_3mol.txt", "r") as temp_header:
             Headers = temp_header.readlines()
         os.remove(f"Temp_Header_3mol.txt")
@@ -1433,7 +1482,7 @@ class BrickWork:
                         pass
                 self.XYZ_3mol_to_XYZ_2mol()
                 with open(f"{self.tcalpath}/tcal.sh", "w") as f:
-                    f.write(Stereotyped.tcal_sh_txt)
+                    f.write(StandardPhrases.tcal_sh_txt)
                 qsubList.append("qsub tcal.sh")
 
                 self.job_submission(qsubList, "tcal", self.tcalpath)
