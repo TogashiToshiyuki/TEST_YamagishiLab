@@ -239,7 +239,6 @@ class BrickWork:
         if not self.chk:
             while True:
                 mol_pos_number = input(f"\n"
-                                       f"Calculation from 3 molecules have been selected.\n"  # 3molでの計算が選ばれました
                                        f"{Color.GREEN}Please select a structure from 1~3..{Color.RESET}\n"
                                        f"\t 1: H-H\n"
                                        f"\t 2: T-T\n"
@@ -485,20 +484,19 @@ class BrickWork:
         with open(f"{filepath}/G.sh", "w") as f:
             f.write(Stereotyped.Sh_txt)
         Temp_SHs.append(f"G.sh")
-        if not args.manual:
-            print(f"Automatically generate files for structural verification...")
-            self.mol_pos = "p1"
-            Temp_SHs.append(self.mkFiles("0_1800_400", filepath).replace("qsub ", ""))
-            self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
+        print(f"Automatically generate files for structural verification...")
+        self.mol_pos = "p1"
+        Temp_SHs.append(self.mkFiles("0_1800_400", filepath).replace("qsub ", ""))
+        self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
 
-            self.mol_pos = "p2"
-            self.mkFiles("0_1800_400", filepath)
-            self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
+        self.mol_pos = "p2"
+        self.mkFiles("0_1800_400", filepath)
+        self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
 
-            self.mol_pos = "p3"
-            self.mkFiles("0_1800_400", filepath)
-            self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
-            self.help_check_exit()
+        self.mol_pos = "p3"
+        self.mkFiles("0_1800_400", filepath)
+        self.messages.append(f"\t>>> {self.MaterName}_3mol{self.mol_pos}_0_1800_400.gjf: Created.")
+        self.help_check_exit()
 
         print("\nDelete unnecessary files...")
         Temp_SHs = list(set(Temp_SHs))
