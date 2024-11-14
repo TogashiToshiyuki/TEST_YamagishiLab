@@ -193,7 +193,7 @@ def main():
 
     # Search for the most stable structure
     Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
-                                 dirpath, which, dev, RefLines, Operator, messages, HelpList, Debug, tcal_path)
+                                 dirpath, which, dev, RefLines, Operator, messages, HelpList, Debug, tcal_path, args)
 
     # Calculate the transfer integral
     Calculate_TI(calculation_tcal_Flag, tcal_path, MaterName, Nmol, mol_pos,
@@ -265,9 +265,9 @@ def arg_parser(messages, HelpList):
                         help="Start the programme in Debug mode.",
                         action="store_true")
 
-    parser.add_argument('--tcal', '-t',
+    parser.add_argument('--notcal', '--nt',
                         help="Argument for not calculating tcal.",
-                        action="store_false")
+                        action="store_true")
     parser.add_argument('--chk', '--Check', '-c',
                         help="Check the structure.",
                         action="store_true")
@@ -281,6 +281,8 @@ def arg_parser(messages, HelpList):
                         nargs='?',
                         const=True, default=False,
                         help='Create files of any condition')
+    parser.add_argument('--energy', '-e',
+                        action="store_true")
 
     # Create a mutually exclusive group that requires one argument
     group = parser.add_mutually_exclusive_group(required=False)
@@ -322,11 +324,11 @@ def arg_parser(messages, HelpList):
         messages.append(f"\t>>>{Color.RED}2mol or 3mol must be selected.{Color.RESET}\n")
         HelpList.append(True)
 
-    calculation_tcal_Flag = args.tcal
-    if args.tcal:
-        pass
-    else:
+    calculation_tcal_Flag = args.notcal
+    if args.notcal:
         messages.append(f"{Color.RED}Runs the program without transfer integral calculations.{Color.RESET}")
+    else:
+        pass
 
     Nmol = ""
     if args.two_mol:
@@ -830,9 +832,9 @@ def mkNewCondition(Nmol, Deg, Val, which, RefValues):
 
 # Search for the most stable structure
 def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
-                                 dirpath, which, dev, RefLines, Operator, messages, HelpList, Debug, tcalpath):
+                                 dirpath, which, dev, RefLines, Operator, messages, HelpList, Debug, tcalpath, args):
     getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, which,
-                          dev, RefLines, messages, HelpList, Debug)
+                          dev, RefLines, messages, HelpList, Debug, args)
 
     if "2mol" in Nmol:
         print(f"\n\t>>> {Color.GREEN}Calculations for 2mol were successfully finished.{Color.RESET}")
@@ -844,12 +846,12 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
             temp_Structures.append(RefLines)
             mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dcol",
-                                  dev, RefLines, messages, HelpList, Debug)
+                                  dev, RefLines, messages, HelpList, Debug, args)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
             mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dtrv",
-                                  dev, RefLines, messages, HelpList, Debug)
+                                  dev, RefLines, messages, HelpList, Debug, args)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
             MostStable = CompareStructures(RefLines, temp_Structures[-1])
@@ -861,12 +863,12 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
             temp_Structures.append(RefLines)
             mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dcol",
-                                  dev, RefLines, messages, HelpList, Debug)
+                                  dev, RefLines, messages, HelpList, Debug, args)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
             mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dtrv",
-                                  dev, RefLines, messages, HelpList, Debug)
+                                  dev, RefLines, messages, HelpList, Debug, args)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
             MostStable = CompareStructures(RefLines, temp_Structures[-1])
@@ -878,12 +880,12 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
             temp_Structures.append(RefLines)
             mkCycleConditions(RefLines, "Dcol", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dcol",
-                                  dev, RefLines, messages, HelpList, Debug)
+                                  dev, RefLines, messages, HelpList, Debug, args)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
             mkCycleConditions(RefLines, "Dtrv", dev, Nmol, Formated_Tilt, mol_pos, MaterName)
             getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt, "Dtrv",
-                                  dev, RefLines, messages, HelpList, Debug)
+                                  dev, RefLines, messages, HelpList, Debug, args)
 
             RefLines = getRefLines(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_min.txt")
             MostStable = CompareStructures(RefLines, temp_Structures[-1])
@@ -920,7 +922,7 @@ def Most_Stable_Structure_Search(MaterName, Nmol, mol_pos, Tilt, Formated_Tilt,
 
 
 def getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Operator, Tilt,
-                          which, dev, RefLines, messages, HelpList, Debug):
+                          which, dev, RefLines, messages, HelpList, Debug, args):
     judge = False
     while not judge:
         qsubList = []
@@ -944,6 +946,8 @@ def getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Oper
 
         print("\n**********\nReading Data...\n")
         readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpList)
+        if args.energy:
+            exit()
         judge = mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos)
     return
 
@@ -1907,6 +1911,8 @@ def process_file(F_path):
 def Calculate_TI(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
                  Formated_Tilt, Debug, messages, HelpList):
     if calculation_tcal_flag:
+        pass
+    else:
         print(f"\n**********\n"
               f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
         if not os.path.exists(f"./{tcal_path}/{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_tcal.log"):
@@ -1934,8 +1940,6 @@ def Calculate_TI(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
         else:
             print(f"\t>>> tcal.log: {Color.GREEN}Already exists!!{Color.RESET}")
             print(f"\t>>> {Color.GREEN}Calculation of transfer integrals was skipped.{Color.RESET}")
-    else:
-        pass
     # Phase check
     PhaseCheck(tcal_path, Debug)
     return

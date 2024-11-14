@@ -18,17 +18,20 @@
 #   --xyz, --XYZ: .xyzファイルを作成します。
 #
 # 依存関係:
-#   - numpy
-#   - subprocess
+#   - Python 3.6以上
+#   標準ライブラリ
 #   - argparse
-#   - os
-#   - sys
-#   - time
-#   - math
-#   - random
 #   - datetime
 #   - functools
 #   - glob
+#   - math
+#   - os
+#   - random
+#   - subprocess
+#   - sys
+#   - time
+#
+#   - numpy
 #   ガウシアンの以下のコマンドを利用しています。
 #   - g16
 #   - newzmat
@@ -1545,8 +1548,7 @@ class BrickWork:
         for ComFileName in ComFileNames:
             FormatedComfn = (ComFileName[:-4]).strip().split("/")[-1]
             XYZFileName = f"{FormatedComfn}.xyz"
-            if self.Debug:
-                print(f"\t{FormatedComfn}.com -> {XYZFileName}")
+            print(f"\t{FormatedComfn}.com -> {XYZFileName}")
             XYZFileNameList.append(XYZFileName)
             subprocess.run(["newzmat", "-icart", "-oxyz", FormatedComfn, XYZFileName],
                            timeout=2, cwd=self.tcalpath)
