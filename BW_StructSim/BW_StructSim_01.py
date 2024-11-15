@@ -1883,7 +1883,7 @@ class BrickWork:
         CombLines12 = []
         CombLines23 = []
         CombLines31 = []
-        print("Entry\tAngle\tDcol\tDtrv\tCpCE\tBSE\t**"
+        print("Entry\tOther\tDEdge\tDFaceon\tCpCE\tBSE\t**"
               "\tTI-NLUMO\tTI-LUMO\tTI-HOMO\tTI-NHOMO\t**\tPC (LUMO)\tTI-LUMO\tPC (HOMO)\tTI-HOMO")
 
         for Min_line in Min_lines:
@@ -1964,7 +1964,7 @@ class BrickWork:
     def saveCombData(Name, path, List):
         header = (
             f"*************** {Name} Minimum Energy and Transfer Integrals ***************\n"
-            "Entry\tAngle (deg.)\tD in col. (Angstrom)\tD in transv. (Angstrom)\t"
+            "Entry\tOther (Å)\tD in edge. (Å)\tD in faceon. (Å)\t"
             "Counterpoise corrected energy (AU)\tBSSE energy (AU)\t**\t"
             "TI-NLUMO (meV)\tTI-LUMO (meV)\tTI-HOMO (meV)\tTI-NHOMO (meV)\t**\t"
             "PhaseChk (LUMO)\tTI (LUMO)\tPhaseChk (HOMO)\tTI (HOMO)\n"
