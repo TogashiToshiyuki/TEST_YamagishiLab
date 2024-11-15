@@ -762,7 +762,8 @@ class BrickWork:
                 for i in range(len(temp_structure)):
                     f.write(f"***** Structures after the '{i + 1}'th cycle *****\n")
                     Lines = temp_structure[i]
-                    f.writelines(Lines + "\n")
+                    for line in Lines:
+                        f.write(line + "\n")
         print(f"\n\t>>> {self.MaterName}_3mol{self.mol_pos}_mins.hist: Created.")
         return MinConditions
 
