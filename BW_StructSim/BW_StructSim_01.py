@@ -1483,7 +1483,7 @@ class BrickWork:
             self.mkXYZFiles()
             print(f"\n**********\n"
                   f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
-            if not os.path.exists(f"./{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"):
+            if not os.path.exists(f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"):
                 XYZs = glob.glob(f"{self.tcalpath}/*.xyz")
                 for XYZ in XYZs:
                     if "_m1.xyz" in XYZ or "_m2.xyz" in XYZ or "-12.xyz" in XYZ or "-23.xyz" in XYZ or "-31.xyz" in XYZ:
