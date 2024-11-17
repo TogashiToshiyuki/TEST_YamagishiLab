@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # ------------------------------------------------------------------------------
-# 作成者: 富樫稔幸(富山高専)
+# 作成者: Toshiyuki Togashi(NITT)
 # プログラムの説明: BW構造の最安定構造を探索し、TIを計算するプログラム
 # バージョン: 1.0(開発バージョンX3から派生)
 # 作成日: 2024/11/12
@@ -762,7 +762,8 @@ class BrickWork:
                 for i in range(len(temp_structure)):
                     f.write(f"***** Structures after the '{i + 1}'th cycle *****\n")
                     Lines = temp_structure[i]
-                    f.writelines(Lines + "\n")
+                    for line in Lines:
+                        f.write(line + "\n")
         print(f"\n\t>>> {self.MaterName}_3mol{self.mol_pos}_mins.hist: Created.")
         return MinConditions
 
@@ -1482,7 +1483,7 @@ class BrickWork:
             self.mkXYZFiles()
             print(f"\n**********\n"
                   f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
-            if not os.path.exists(f"./{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"):
+            if not os.path.exists(f"{self.tcalpath}/{self.MaterName}_3mol{self.mol_pos}_tcal.log"):
                 XYZs = glob.glob(f"{self.tcalpath}/*.xyz")
                 for XYZ in XYZs:
                     if "_m1.xyz" in XYZ or "_m2.xyz" in XYZ or "-12.xyz" in XYZ or "-23.xyz" in XYZ or "-31.xyz" in XYZ:
@@ -1882,7 +1883,7 @@ class BrickWork:
         CombLines12 = []
         CombLines23 = []
         CombLines31 = []
-        print("Entry\tAngle\tDcol\tDtrv\tCpCE\tBSE\t**"
+        print("Entry\tOther\tDEdge\tDFaceon\tCpCE\tBSE\t**"
               "\tTI-NLUMO\tTI-LUMO\tTI-HOMO\tTI-NHOMO\t**\tPC (LUMO)\tTI-LUMO\tPC (HOMO)\tTI-HOMO")
 
         for Min_line in Min_lines:
@@ -1963,7 +1964,7 @@ class BrickWork:
     def saveCombData(Name, path, List):
         header = (
             f"*************** {Name} Minimum Energy and Transfer Integrals ***************\n"
-            "Entry\tAngle (deg.)\tD in col. (Angstrom)\tD in transv. (Angstrom)\t"
+            "Entry\tOther (Å)\tD in edge. (Å)\tD in faceon. (Å)\t"
             "Counterpoise corrected energy (AU)\tBSSE energy (AU)\t**\t"
             "TI-NLUMO (meV)\tTI-LUMO (meV)\tTI-HOMO (meV)\tTI-NHOMO (meV)\t**\t"
             "PhaseChk (LUMO)\tTI (LUMO)\tPhaseChk (HOMO)\tTI (HOMO)\n"
