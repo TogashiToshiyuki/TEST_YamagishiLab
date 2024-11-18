@@ -115,7 +115,6 @@ class EffectiveMass:
             self.HelpList.append(True)
         else:
             print(f"\t>>> Tilt angles: {Color.GREEN}{Tilt_temp[0]}{Color.RESET}")
-
         return p1Files, p2Files, p3Files, AllFiles, Angles
 
     def getMinTIFileName(self):
@@ -182,7 +181,6 @@ class EffectiveMass:
             self.HelpList.append(True)
         else:
             print(f"\t>>> 3mol_all.txt files: {Color.GREEN}All Available.{Color.RESET}")
-        self.help_check_exit()
 
         return AllFiles
 
@@ -198,6 +196,46 @@ class EffectiveMass:
             except (ValueError, IndexError):
                 pass
         return Angles_temp
+
+    def mkBandInfo_p1p2(self):
+        for p1File in self.p1Files:
+            if "-12.txt" in p1File:
+                p1Data_12 = self.TextFileToData(p1File)
+            elif "-23.txt" in p1File:
+                p1Data_23 = self.TextFileToData(p1File)
+            elif "-31.txt" in p1File:
+                p1Data_31 = self.TextFileToData(p1File)
+            else:
+                p1Data_12, p1Data_23, p1Data_31 = [], [], []
+
+        for p2File in self.p2Files:
+            if "-12.txt" in p2File:
+                p2Data_12 = self.TextFileToData(p2File)
+            elif "-23.txt" in p2File:
+                p2Data_23 = self.TextFileToData(p2File)
+            elif "-31.txt" in p2File:
+                p2Data_31 = self.TextFileToData(p2File)
+            else:
+                p2Data_12, p2Data_23, p2Data_31 = [], [], []
+
+        DatList_temp = []
+
+        for Angle in self.Angles:
+            for line in p1Data_12:
+                DataList = line.strip().split()
+                if float(DataList[1]) == Angle:
+                    name1 = DataList[0].split("_")
+                    Dcol = float(DataList[2].strip())
+                    Dtrv = float(DataList[3].strip())
+                    T12_HOMO = float(DataList[15].strip())
+                    T12_LUMO = float(DataList[13])
+
+    @staticmethod
+    def TextFileToData(path):
+        with open(path, "r") as f:
+            lines = f.readlines()
+        del lines[0:2]
+        return lines
 
 
 class Color:
