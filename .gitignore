@@ -9,3 +9,5 @@ Pentacene_*mol*
 */G.sh
 fort.7
 *.hist
+*.dat
+*.png

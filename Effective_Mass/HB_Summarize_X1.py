@@ -7,6 +7,7 @@ import os
 def main():
     args = get_args()
     EM = EffectiveMass(args)
+    DatList = EM.mkBandInfo_p1p2()
 
 
 def get_args():
@@ -29,7 +30,7 @@ class EffectiveMass:
         self.debug = args.debug
         self.messages = []
         self.HelpList = []
-        self.p1Files, self.p2Files, self.p3Files, self.AllFiles, self.Angles = self.File_Set_Check()
+        self.p1Files, self.p2Files, self.p3Files, self.AllFiles, self.Angles, self.Tilt_Angle = self.File_Set_Check()
         os.makedirs("./BandInfo", exist_ok=True)
         os.makedirs("./Figures/BandStructures", exist_ok=True)
 
@@ -115,7 +116,7 @@ class EffectiveMass:
             self.HelpList.append(True)
         else:
             print(f"\t>>> Tilt angles: {Color.GREEN}{Tilt_temp[0]}{Color.RESET}")
-        return p1Files, p2Files, p3Files, AllFiles, Angles
+        return p1Files, p2Files, p3Files, AllFiles, Angles, Tilt_temp[0]
 
     def getMinTIFileName(self):
         Dirs = os.listdir("./")
@@ -198,6 +199,9 @@ class EffectiveMass:
         return Angles_temp
 
     def mkBandInfo_p1p2(self):
+        n = 100
+
+        p1Data_12, p1Data_23, p1Data_31 = [], [], []
         for p1File in self.p1Files:
             if "-12.txt" in p1File:
                 p1Data_12 = self.TextFileToData(p1File)
@@ -205,9 +209,8 @@ class EffectiveMass:
                 p1Data_23 = self.TextFileToData(p1File)
             elif "-31.txt" in p1File:
                 p1Data_31 = self.TextFileToData(p1File)
-            else:
-                p1Data_12, p1Data_23, p1Data_31 = [], [], []
 
+        p2Data_12, p2Data_23, p2Data_31 = [], [], []
         for p2File in self.p2Files:
             if "-12.txt" in p2File:
                 p2Data_12 = self.TextFileToData(p2File)
@@ -215,8 +218,6 @@ class EffectiveMass:
                 p2Data_23 = self.TextFileToData(p2File)
             elif "-31.txt" in p2File:
                 p2Data_31 = self.TextFileToData(p2File)
-            else:
-                p2Data_12, p2Data_23, p2Data_31 = [], [], []
 
         DatList_temp = []
 
@@ -226,9 +227,91 @@ class EffectiveMass:
                 if float(DataList[1]) == Angle:
                     name1 = DataList[0].split("_")
                     Dcol = float(DataList[2].strip())
-                    Dtrv = float(DataList[3].strip())
+                    Dtrv1 = float(DataList[3].strip())
                     T12_HOMO = float(DataList[15].strip())
                     T12_LUMO = float(DataList[13])
+
+            for line in p1Data_23:
+                DataList = line.split()
+                if float(DataList[1]) == Angle:
+                    T23_HOMO = float(DataList[15].strip())
+                    T23_LUMO = float(DataList[13].strip())
+                else:
+                    pass
+
+            for line in p1Data_31:
+                DataList = line.split()
+                if float(DataList[1]) == Angle:
+                    T13_HOMO = float(DataList[15].strip())
+                    T13_LUMO = float(DataList[13].strip())
+                else:
+                    pass
+
+            for line in p2Data_12:
+                DataList = line.strip().split()
+                if float(DataList[1]) == Angle:
+                    name2 = DataList[0].split("_")
+                    Dtrv2 = float(DataList[3].strip())
+                else:
+                    pass
+
+            for line in p2Data_23:
+                DataList = line.split()
+                if float(DataList[1]) == Angle:
+                    T35_HOMO = float(DataList[15].strip())
+                    T35_LUMO = float(DataList[13].strip())
+                else:
+                    pass
+
+            for line in p2Data_31:
+                DataList = line.split()
+                if float(DataList[1]) == Angle:
+                    T34_HOMO = float(DataList[15].strip())
+                    T34_LUMO = float(DataList[13].strip())
+                else:
+                    pass
+
+            # 同じ物質のデータかどうかを確認
+            if name1[0] == name2[0]:
+                name = name1
+            else:
+                self.messages.append(f"{Color.RED}"
+                                     f"\t>>> Error: Data for the Different Material might exist."
+                                     f"{Color.RESET}")
+                self.HelpList.append(True)
+            self.help_check_exit()
+
+            Dtrv = Dtrv1 + Dtrv2
+            title = f"{name[0]}-B12-{self.Tilt_Angle}-{int(Angle)}d"
+            with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
+                Fhomo.write(f"{title}-HOMO\n")
+                Fhomo.write(f"{n}\n")
+                Fhomo.write(f"{Dcol}\n")
+                Fhomo.write(f"{Dtrv}\n")
+                Fhomo.write("\n")
+                Fhomo.write(f"{T12_HOMO}\n")
+                Fhomo.write(f"{T13_HOMO}\n")
+                Fhomo.write(f"{T23_HOMO}\n")
+                Fhomo.write(f"{T34_HOMO}\n")
+                Fhomo.write(f"{T35_HOMO}\n")
+                Fhomo.write("\n")
+            DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
+
+            with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
+                Flumo.write(f"{title}-LUMO\n")
+                Flumo.write(f"{n}\n")
+                Flumo.write(f"{Dcol}\n")
+                Flumo.write(f"{Dtrv}\n")
+                Flumo.write("\n")
+                Flumo.write(f"{T12_LUMO}\n")
+                Flumo.write(f"{T13_LUMO}\n")
+                Flumo.write(f"{T23_LUMO}\n")
+                Flumo.write(f"{T34_LUMO}\n")
+                Flumo.write(f"{T35_LUMO}\n")
+                Flumo.write("\n")
+            DatList_temp.append(f"./BandInfo/{title}-LUMO.dat")
+
+        return DatList_temp
 
     @staticmethod
     def TextFileToData(path):
