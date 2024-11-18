@@ -7,7 +7,13 @@ import os
 def main():
     args = get_args()
     EM = EffectiveMass(args)
-    DatList = EM.mkBandInfo_p1p2()
+    DatList_p12 = EM.mkBandInfo_p1p2()
+    DatList_p3 = EM.mkBandInfo_p3()
+
+    DatList = DatList_p12 + DatList_p3
+    DatList.sort()
+
+    print(f"\n{Color.GREEN}The band information files are created.{Color.RESET}")
 
 
 def get_args():
@@ -222,6 +228,7 @@ class EffectiveMass:
         DatList_temp = []
 
         for Angle in self.Angles:
+            name1, name2 = [], []
             for line in p1Data_12:
                 DataList = line.strip().split()
                 if float(DataList[1]) == Angle:
@@ -282,7 +289,7 @@ class EffectiveMass:
             self.help_check_exit()
 
             Dtrv = Dtrv1 + Dtrv2
-            title = f"{name[0]}-B12-{self.Tilt_Angle}-{int(Angle)}d"
+            title = f"{name[0]}_{self.Tilt_Angle}-B12-{int(Angle)}d"
             with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
                 Fhomo.write(f"{title}-HOMO\n")
                 Fhomo.write(f"{n}\n")
@@ -308,6 +315,81 @@ class EffectiveMass:
                 Flumo.write(f"{T23_LUMO}\n")
                 Flumo.write(f"{T34_LUMO}\n")
                 Flumo.write(f"{T35_LUMO}\n")
+                Flumo.write("\n")
+            DatList_temp.append(f"./BandInfo/{title}-LUMO.dat")
+
+        return DatList_temp
+
+    def mkBandInfo_p3(self):
+        n = 100
+
+        p3Data_12, p3Data_23, p3Data_13 = [], [], []
+        for p3 in self.p3Files:
+            if "-12.txt" in p3:
+                p3Data_12 = self.TextFileToData(p3)
+            elif "-23.txt" in p3:
+                p3Data_23 = self.TextFileToData(p3)
+            elif "-31.txt" in p3:
+                p3Data_13 = self.TextFileToData(p3)
+            else:
+                pass
+
+        DatList_temp = []
+
+        for Angle in self.Angles:
+            for line in p3Data_12:
+                DataList = line.strip().split()
+                if float(DataList[1]) == Angle:
+                    name = DataList[0].split("_")
+                    Dcol = float(DataList[2].strip())
+                    Dtrv = float(DataList[3].strip()) * 2
+                    T12_HOMO = float(DataList[15])
+                    T12_LUMO = float(DataList[13])
+                else:
+                    pass
+
+            for line in p3Data_23:
+                DataList = line.strip().split()
+                if float(DataList[1]) == Angle:
+                    T23_HOMO = float(DataList[15])
+                    T23_LUMO = float(DataList[13])
+                else:
+                    pass
+
+            for line in p3Data_13:
+                DataList = line.strip().split()
+                if float(DataList[1]) == Angle:
+                    T13_HOMO = float(DataList[15])
+                    T13_LUMO = float(DataList[13])
+                else:
+                    pass
+
+            title = f"{name[0]}_{self.Tilt_Angle}-B3-{int(Angle)}d"
+            with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
+                Fhomo.write(f"{title}-HOMO\n")
+                Fhomo.write(f"{n}\n")
+                Fhomo.write(f"{Dcol}\n")
+                Fhomo.write(f"{Dtrv}\n")
+                Fhomo.write("\n")
+                Fhomo.write(f"{T12_HOMO}\n")
+                Fhomo.write(f"{T13_HOMO}\n")
+                Fhomo.write(f"{T23_HOMO}\n")
+                Fhomo.write(f"{T13_HOMO}\n")
+                Fhomo.write(f"{T23_HOMO}\n")
+                Fhomo.write("\n")
+            DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
+
+            with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
+                Flumo.write(f"{title}-LUMO\n")
+                Flumo.write(f"{n}\n")
+                Flumo.write(f"{Dcol}\n")
+                Flumo.write(f"{Dtrv}\n")
+                Flumo.write("\n")
+                Flumo.write(f"{T12_LUMO}\n")
+                Flumo.write(f"{T13_LUMO}\n")
+                Flumo.write(f"{T23_LUMO}\n")
+                Flumo.write(f"{T13_LUMO}\n")
+                Flumo.write(f"{T23_LUMO}\n")
                 Flumo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-LUMO.dat")
 
