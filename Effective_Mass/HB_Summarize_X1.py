@@ -1,19 +1,42 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
+import math
 import os
 
 
 def main():
     args = get_args()
     EM = EffectiveMass(args)
-    DatList_p12 = EM.mkBandInfo_p1p2()
-    DatList_p3 = EM.mkBandInfo_p3()
 
+    # Make band information files
+    print("\n**********\nMaking band information files...")
+    if len(EM.p1Files) != 0 and len(EM.p2Files) != 0:
+        DatList_p12 = EM.mkBandInfo_p1p2()
+    else:
+        DatList_p12 = []
+    if len(EM.p3Files) != 0:
+        DatList_p3 = EM.mkBandInfo_p3()
+    else:
+        DatList_p3 = []
     DatList = DatList_p12 + DatList_p3
     DatList.sort()
+    print(f"\n\t>>> {Color.GREEN}The band information files are created.{Color.RESET}")
 
-    print(f"\n{Color.GREEN}The band information files are created.{Color.RESET}")
+    # Make band structure figures
+    print("\n**********\nMaking band structures...")
+    Pattern = "2"
+    FailFiles = []
+    MassValues = []
+    for Dat in DatList:
+        print(f"\n>>> Creating band structure figures for {Color.GREEN}{Dat}{Color.RESET}...")
+        Params, Fail = EM.getParameters(Dat)
+        if Fail:
+            FailFiles.append(Dat)
+        else:
+            if EM.debug:
+                EM.displayDef(Params)
+            EM.calcEffMass(Params, Dat)
 
 
 def get_args():
@@ -303,6 +326,7 @@ class EffectiveMass:
                 Fhomo.write(f"{T35_HOMO}\n")
                 Fhomo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
+            print(f"\t>>> {title}-HOMO.dat: Complete!")
 
             with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
                 Flumo.write(f"{title}-LUMO\n")
@@ -317,6 +341,7 @@ class EffectiveMass:
                 Flumo.write(f"{T35_LUMO}\n")
                 Flumo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-LUMO.dat")
+            print(f"\t>>> {title}-LUMO.dat: Complete!")
 
         return DatList_temp
 
@@ -378,6 +403,7 @@ class EffectiveMass:
                 Fhomo.write(f"{T23_HOMO}\n")
                 Fhomo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
+            print(f"\t>>> {title}-HOMO.dat: Complete!")
 
             with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
                 Flumo.write(f"{title}-LUMO\n")
@@ -392,6 +418,7 @@ class EffectiveMass:
                 Flumo.write(f"{T23_LUMO}\n")
                 Flumo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-LUMO.dat")
+            print(f"\t>>> {title}-LUMO.dat: Complete!")
 
         return DatList_temp
 
@@ -401,6 +428,105 @@ class EffectiveMass:
             lines = f.readlines()
         del lines[0:2]
         return lines
+
+    def getParameters(self, path):
+        if not os.path.isfile(path):
+            print(f"\t\t{Color.RED}>>> Error: {path} DOES NOT exist in the current directory.{Color.RESET}")
+            self.HelpList.append(True)
+            self.help_check_exit()
+        else:
+            pass
+        with open(path, "r") as f:
+            lines = f.readlines()
+        if lines[4].isspace() and lines[10].isspace():
+            Comment = lines[0].strip()
+            dev = int(lines[1].strip())
+            Dcol = round(float(lines[2].strip()), 2)
+            Dtrv = round(float(lines[3].strip()), 2)
+            TI12 = round(float(lines[5].strip()), 2)
+            TI13 = round(float(lines[6].strip()), 2)
+            TI23 = round(float(lines[7].strip()), 2)
+            TI34 = round(float(lines[8].strip()), 2)
+            TI35 = round(float(lines[9].strip()), 2)
+            Fail = False
+        else:
+            print(f"\t\t{Color.RED}>>> Error: {path} is not a valid file.{Color.RESET}")
+            Fail = True
+            Comment, dev, Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35 = "", 0, 0, 0, 0, 0, 0, 0, 0
+        Params = {"Comment": Comment, "dev": dev, "Dcol": Dcol, "Dtrv": Dtrv, "TI12": TI12, "TI13": TI13, "TI23": TI23,
+                  "TI34": TI34, "TI35": TI35}
+        return Params, Fail
+
+    @staticmethod
+    def displayDef(Params):
+        Dcol = Params["Dcol"]
+        Dtrv = Params["Dtrv"]
+        TI12 = Params["TI12"]
+        TI13 = Params["TI13"]
+        TI23 = Params["TI23"]
+        TI34 = Params["TI34"]
+        TI35 = Params["TI35"]
+        Comment = Params["Comment"]
+
+        print(f"\t*************** Definition of Variables ***************\n"
+              f"\n"
+              f"\t                       –Dtransv–\n"
+              f"\t(Mol1) ––––––––––––––––––––––––––––––––––––– (Mol4) \n"
+              f"\t  |     .                                  .   |\n"
+              f"\t  |         . TI13               TI34  .       |\n"
+              f"\t  |             .                 .            |\n"
+              f"\t  |                 .        .                 |   |\n"
+              f"\t TI12                 (Mol3)                   |  Dcol\n"
+              f"\t  |                 .        .                 |   |\n"
+              f"\t  |             .                 .            |\n"
+              f"\t  |        .  TI23              TI35   .       |\n"
+              f"\t  |    .                                   .   |\n"
+              f"\t(Mol2) ––––––––––––––––––––––––––––––––––––– (Mol5) \n"
+              f"\n"
+              f"\t  Data from '{Comment}'\n"
+              f"\t  Distance in col. = {Dcol} Å\n"
+              f"\t  Distance in transv. = {Dtrv} Å\n"
+              f"\t  Transfer integrals:\n"
+              f"\t       TI12 (Mol1-Mol2) = {TI12} meV\n"
+              f"\t       TI13 (Mol1-Mol3) = {TI13} meV\n"
+              f"\t       TI23 (Mol2-Mol3) = {TI23} meV\n"
+              f"\t       TI34 (Mol3-Mol4) = {TI34} meV\n"
+              f"\t       TI35 (Mol3-Mol5) = {TI35} meV\n"
+              f"\t*******************************************************\n")
+        return None
+
+    def calcEffMass(self, Params, Dat):
+        print(f"\tCalculating effective masses for {Color.GREEN}{Dat}{Color.RESET}...")
+        Comment = Params["Comment"]
+        dev = Params["dev"]
+        Dcol = Params["Dcol"]
+        Dtrv = Params["Dtrv"]
+        TI12 = Params["TI12"]
+        TI13 = Params["TI13"]
+        TI23 = Params["TI23"]
+        TI34 = Params["TI34"]
+        TI35 = Params["TI35"]
+
+        # Calculate 2D Energy Dispersion
+        Kcol = round(math.pi / Dcol / dev, 10)
+        Ktrv = round(math.pi / Dtrv / dev, 10)
+        if self.debug:
+            print(f"\t>>> Kcol: {Kcol}\n\t>>> Ktrv: {Ktrv}")
+
+
+class Constants:
+    # ハートリーからeVに変換するための定数
+    Hartree_to_eV = 27.21138602
+    # 気体定数[R] (J/(mol・K))
+    R = 8.314462618
+    # 真空中の光速[m/s]
+    C = 299792458
+    # 電気素量[C]
+    E = 1.602176634e-19
+    # meV/(m/s)^2
+    ElMass = 0.51099895 * 10 ** 9 / C ** 2
+    # meVs
+    h_bar = 6.582119569 * 10 ** (-13)  # meVs
 
 
 class Color:
