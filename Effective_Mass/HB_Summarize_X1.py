@@ -4,6 +4,8 @@ import argparse
 import math
 import os
 
+import numpy as np
+
 
 def main():
     args = get_args()
@@ -228,7 +230,6 @@ class EffectiveMass:
         return Angles_temp
 
     def mkBandInfo_p1p2(self):
-        n = 100
 
         p1Data_12, p1Data_23, p1Data_31 = [], [], []
         for p1File in self.p1Files:
@@ -315,7 +316,7 @@ class EffectiveMass:
             title = f"{name[0]}_{self.Tilt_Angle}-B12-{int(Angle)}d"
             with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
                 Fhomo.write(f"{title}-HOMO\n")
-                Fhomo.write(f"{n}\n")
+                Fhomo.write(f"{Constants.n}\n")
                 Fhomo.write(f"{Dcol}\n")
                 Fhomo.write(f"{Dtrv}\n")
                 Fhomo.write("\n")
@@ -330,7 +331,7 @@ class EffectiveMass:
 
             with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
                 Flumo.write(f"{title}-LUMO\n")
-                Flumo.write(f"{n}\n")
+                Flumo.write(f"{Constants.n}\n")
                 Flumo.write(f"{Dcol}\n")
                 Flumo.write(f"{Dtrv}\n")
                 Flumo.write("\n")
@@ -346,7 +347,6 @@ class EffectiveMass:
         return DatList_temp
 
     def mkBandInfo_p3(self):
-        n = 100
 
         p3Data_12, p3Data_23, p3Data_13 = [], [], []
         for p3 in self.p3Files:
@@ -392,7 +392,7 @@ class EffectiveMass:
             title = f"{name[0]}_{self.Tilt_Angle}-B3-{int(Angle)}d"
             with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
                 Fhomo.write(f"{title}-HOMO\n")
-                Fhomo.write(f"{n}\n")
+                Fhomo.write(f"{Constants.n}\n")
                 Fhomo.write(f"{Dcol}\n")
                 Fhomo.write(f"{Dtrv}\n")
                 Fhomo.write("\n")
@@ -407,7 +407,7 @@ class EffectiveMass:
 
             with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
                 Flumo.write(f"{title}-LUMO\n")
-                Flumo.write(f"{n}\n")
+                Flumo.write(f"{Constants.n}\n")
                 Flumo.write(f"{Dcol}\n")
                 Flumo.write(f"{Dtrv}\n")
                 Flumo.write("\n")
@@ -441,13 +441,13 @@ class EffectiveMass:
         if lines[4].isspace() and lines[10].isspace():
             Comment = lines[0].strip()
             dev = int(lines[1].strip())
-            Dcol = round(float(lines[2].strip()), 2)
-            Dtrv = round(float(lines[3].strip()), 2)
-            TI12 = round(float(lines[5].strip()), 2)
-            TI13 = round(float(lines[6].strip()), 2)
-            TI23 = round(float(lines[7].strip()), 2)
-            TI34 = round(float(lines[8].strip()), 2)
-            TI35 = round(float(lines[9].strip()), 2)
+            Dcol = round(float(lines[2].strip()), 3)
+            Dtrv = round(float(lines[3].strip()), 3)
+            TI12 = round(float(lines[5].strip()), 3)
+            TI13 = round(float(lines[6].strip()), 3)
+            TI23 = round(float(lines[7].strip()), 3)
+            TI34 = round(float(lines[8].strip()), 3)
+            TI35 = round(float(lines[9].strip()), 3)
             Fail = False
         else:
             print(f"\t\t{Color.RED}>>> Error: {path} is not a valid file.{Color.RESET}")
@@ -512,6 +512,57 @@ class EffectiveMass:
         Ktrv = round(math.pi / Dtrv / dev, 10)
         if self.debug:
             print(f"\t>>> Kcol: {Kcol}\n\t>>> Ktrv: {Ktrv}")
+        Energy_plus_array, Energy_minus_array = np.zeros((dev + 1, dev + 1)), np.zeros((dev + 1, dev + 1))
+        for i in range(dev + 1):
+            for j in range(dev + 1):
+                Energy_plus, Energy_minus = self.calcEnergy(i, j, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv)
+                Energy_plus_array[i][j] = Energy_plus
+                Energy_minus_array[i][j] = Energy_minus
+        if "HOMO" in Comment:
+            BandEdge_tmp = np.max(Energy_plus_array)
+            BandEdge_index = np.unravel_index(np.argmax(Energy_plus_array), Energy_plus_array.shape)
+        elif "LUMO" in Comment:
+            BandEdge_tmp = np.min(Energy_minus_array)
+            BandEdge_index = np.unravel_index(np.argmin(Energy_minus_array), Energy_minus_array.shape)
+        else:
+            BandEdge_tmp, BandEdge_index = 0, [0, 0]
+            print(f"{Color.RED}\t>>> Error: There is NO information specifying HOMO or LUMO in the file.\n"
+                  f"\t>>> The first line (Comment line) should contain HOMO or LUMO.{Color.RESET}")
+            self.HelpList.append(True)
+        self.help_check_exit()
+        if self.debug:
+            print(f"Energy of the band edge: {BandEdge_tmp} meV "
+                  f"at ({BandEdge_index[0]}, {BandEdge_index[1]}) "
+                  f"({BandEdge_index[0] * Kcol}, {BandEdge_index[1] * Ktrv})")
+
+        # バンドエッジ近傍のエネルギーを再計算
+        points = 5
+        Kcol_for_M = np.zeros(2 * points + 1)
+        Ktrv_for_M = np.zeros(2 * points + 1)
+        for i in range(2 * points + 1):
+            Kcol_for_M[i] = Kcol * (BandEdge_index[0] + i - points)
+            Ktrv_for_M[i] = Ktrv * (BandEdge_index[1] + i - points)
+        E4M = np.zeros((2 * points + 1, 2 * points + 1))
+        for i in range(len(Kcol_for_M)):
+            for h in range(len(Ktrv_for_M)):
+                Energy_plus, Energy_minus = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35,
+                                                            Kcol_for_M[i], Ktrv_for_M[h])
+                if "HOMO" in Comment:
+                    E4M[i][h] = Energy_plus
+                elif "LUMO" in Comment:
+                    E4M[i][h] = Energy_minus
+
+    @staticmethod
+    def calcEnergy(column, transv, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv):
+        B11 = 2 * TI12 * math.cos(Kcol * column)
+        B12R = ((TI13 + TI35) * math.cos(Kcol * (column / 2) + Ktrv * (transv / 2))
+                + (TI23 + TI34) * math.cos(Kcol * (column / 2) - Ktrv * (transv / 2)))
+        B12I = ((TI35 - TI13) * math.sin(Kcol * (column / 2) + Ktrv * (transv / 2))
+                + (TI23 - TI34) * math.sin(Kcol * (column / 2) - Ktrv * (transv / 2)))
+        B12 = math.sqrt(B12R ** 2 + B12I ** 2)
+        Energy_plus = B11 + B12
+        Energy_minus = B11 - B12
+        return Energy_plus, Energy_minus
 
 
 class Constants:
@@ -527,6 +578,8 @@ class Constants:
     ElMass = 0.51099895 * 10 ** 9 / C ** 2
     # meVs
     h_bar = 6.582119569 * 10 ** (-13)
+    # 近似のための分割数
+    n = 100
 
 
 class Color:
