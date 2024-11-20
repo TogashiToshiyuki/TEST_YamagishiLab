@@ -526,7 +526,7 @@ class Constants:
     # meV/(m/s)^2
     ElMass = 0.51099895 * 10 ** 9 / C ** 2
     # meVs
-    h_bar = 6.582119569 * 10 ** (-13)  # meVs
+    h_bar = 6.582119569 * 10 ** (-13)
 
 
 class Color:
