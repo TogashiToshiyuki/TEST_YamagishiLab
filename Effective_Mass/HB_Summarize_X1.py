@@ -565,6 +565,51 @@ class EffectiveMass:
         B12 = math.sqrt(B12R ** 2 + B12I ** 2)
         Energy_plus = B11 + B12
         Energy_minus = B11 - B12
+
+        # Kcolで一階微分
+        dB11_dKc = -2 * TI12 * column * math.sin(column * Kcol)
+        dB12R_dKc = -1 * (column / 2) * (
+                (TI13 + TI35) * math.sin(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) +
+                (TI23 + TI34) * math.sin(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
+        )
+        dB12I_dKc = (column / 2) * (
+                (TI35 - TI13) * math.cos(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) +
+                (TI23 - TI34) * math.cos(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
+        )
+        dB12_dKc = (1 / B12) * (dB12R_dKc * B12R + dB12I_dKc * B12I)
+        dEplus_dKc = dB11_dKc + dB12_dKc
+        dEminus_dKc = dB11_dKc - dB12_dKc
+
+        # Ktrvで一階微分
+        dB11_dKt = 0
+        dB12R_dKt = -1 * (transv / 2) * (
+                (TI13 + TI35) * math.sin(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) -
+                (TI23 + TI34) * math.sin(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
+        )
+        dB12I_dKt = (transv / 2) * (
+                (TI35 - TI13) * math.cos(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) -
+                (TI23 - TI34) * math.cos(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
+        )
+        dB12_dKt = (1 / B12) * (dB12R_dKt * B12R + dB12I_dKt * B12I)
+        dEplus_dKt = dB11_dKt + dB12_dKt
+        dEminus_dKt = dB11_dKt - dB12_dKt
+
+        # Kcolで二階微分
+        d2B11_dKc2 = -2 * TI12 * (column ** 2) * math.cos(column * Kcol)
+        d2B12_dKc2 = ((-1 / (B12 ** 2)) * dB12_dKc) * ((1 / B12) * (B12R * dB12R_dKc + B12I * dB12I_dKc)) + (
+                (1 / B12) * ((dB12R_dKc ** 2) + (dB12I_dKc ** 2) - (((column / 2) ** 2) * (B12R ** 2) * (B12I ** 2)))
+        )
+        d2Eplus_dKc2 = d2B11_dKc2 + d2B12_dKc2
+        d2Eminus_dKc2 = d2B11_dKc2 - d2B12_dKc2
+
+        # Ktrvで二階微分
+        d2B11_dKt2 = 0
+        d2B12_dKc2 = ((-1 / (B12 ** 2)) * dB12_dKt) * ((1 / B12) * (B12R * dB12R_dKt + B12I * dB12I_dKt)) + (
+                (1 / B12) * ((dB12R_dKt ** 2) + (dB12I_dKt ** 2) - (((transv / 2) ** 2) * (B12R ** 2) * (B12I ** 2)))
+        )
+        d2Eplus_dKt2 = d2B11_dKt2 + d2B12_dKc2
+        d2Eminus_dKt2 = d2B11_dKt2 - d2B12_dKc2
+
         return Energy_plus, Energy_minus
 
 
