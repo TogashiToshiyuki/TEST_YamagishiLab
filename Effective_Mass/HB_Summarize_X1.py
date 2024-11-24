@@ -496,8 +496,8 @@ class EffectiveMass:
               f"\t*******************************************************\n")
         return None
 
-    def calcEffMass(self, Params, Dat):
-        print(f"\tCalculating effective masses for {Color.GREEN}{Dat}{Color.RESET}...")
+    def calcEffMass(self, Params):
+        print(f"\tCalculating effective masses...")
         Comment = Params["Comment"]
         dev = Params["dev"]
         Dcol = Params["Dcol"]
@@ -514,13 +514,13 @@ class EffectiveMass:
         if self.debug:
             print(f"\t>>> Kcol: {Kcol}\n\t>>> Ktrv: {Ktrv}")
         Energy_plus_array, Energy_minus_array = np.zeros((dev + 1, dev + 1)), np.zeros((dev + 1, dev + 1))
-        CE = CalculateEnergy()
         for i in range(dev + 1):
             for j in range(dev + 1):
-                Energy_plus = CE.Energy_Plus(i, j, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv)
-                Energy_minus = CE.Energy_Minus(i, j, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv)
+                Energy_plus, Energy_minus, _, _, _, _, _, _ = self.calcEnergy(i, j, TI12, TI13, TI23, TI34, TI35,
+                                                                              Kcol, Ktrv)
                 Energy_plus_array[i][j] = Energy_plus
                 Energy_minus_array[i][j] = Energy_minus
+        # バンドエッジのエネルギーとその位置を取得
         if "HOMO" in Comment:
             BandEdge_tmp = np.max(Energy_plus_array)
             BandEdge_index = np.unravel_index(np.argmax(Energy_plus_array), Energy_plus_array.shape)
@@ -534,26 +534,71 @@ class EffectiveMass:
             self.HelpList.append(True)
         self.help_check_exit()
         if self.debug:
-            print(f"Energy of the band edge: {BandEdge_tmp} meV "
+            print(f"\t>>> Energy of the band edge: {BandEdge_tmp} meV "
                   f"at ({BandEdge_index[0]}, {BandEdge_index[1]}) "
                   f"({BandEdge_index[0] * Kcol}, {BandEdge_index[1] * Ktrv})")
 
         # バンドエッジ近傍のエネルギーを再計算
         points = 5
-        Kcol_for_M = np.zeros(2 * points + 1)
-        Ktrv_for_M = np.zeros(2 * points + 1)
-        for i in range(2 * points + 1):
-            Kcol_for_M[i] = Kcol * (BandEdge_index[0] + i - points)
-            Ktrv_for_M[i] = Ktrv * (BandEdge_index[1] + i - points)
+        kc_ext = Kcol * BandEdge_index[0]
+        kt_ext = Ktrv * BandEdge_index[1]
+
+        # 有効質量計算用のk点とエネルギーの取得
+        kc4M = np.array([kc_ext + Kcol * (i - points) for i in range(2 * points + 1)])
+        kt4M = np.array([kt_ext + Ktrv * (i - points) for i in range(2 * points + 1)])
         E4M = np.zeros((2 * points + 1, 2 * points + 1))
-        for i in range(len(Kcol_for_M)):
-            for h in range(len(Ktrv_for_M)):
-                Energy_plus = CE.Energy_Plus(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kcol_for_M[i], Ktrv_for_M[i])
-                Energy_minus = CE.Energy_Minus(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kcol_for_M[i], Ktrv_for_M[i])
+        d2E_dKc2 = np.zeros_like(E4M)
+        d2E_dKt2 = np.zeros_like(E4M)
+        d2E_dKcKt = np.zeros_like(E4M)
+        for i in range(2 * points + 1):
+            for h in range(2 * points + 1):
+                results = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, kc4M[i], kt4M[h])
                 if "HOMO" in Comment:
-                    E4M[i][h] = Energy_plus
+                    E = results[0]
+                    d2E_dKc2[i, h] = results[2]
+                    d2E_dKt2[i, h] = results[3]
+                    d2E_dKcKt[i, h] = results[4]
                 elif "LUMO" in Comment:
-                    E4M[i][h] = Energy_minus
+                    E = results[1]
+                    d2E_dKc2[i, h] = results[5]
+                    d2E_dKt2[i, h] = results[6]
+                    d2E_dKcKt[i, h] = results[7]
+                else:
+                    E = 0
+                    print(f"{Color.RED}\t>>> Error: There is NO information specifying HOMO or LUMO at ({i}, {h})")
+                E4M[i, h] = E
+
+        # バンド端での二階微分の平均値を計算
+        center_idx = points
+        Mcc_int = np.mean(d2E_dKc2[center_idx - 1:center_idx + 2, center_idx - 1:center_idx + 2])
+        Mtt_int = np.mean(d2E_dKt2[center_idx - 1:center_idx + 2, center_idx - 1:center_idx + 2])
+        Mct_int = np.mean(d2E_dKcKt[center_idx - 1:center_idx + 2, center_idx - 1:center_idx + 2])
+
+        # 有効質量テンソルの計算
+        Mtensor = np.array([[Mcc_int, Mct_int], [Mct_int, Mtt_int]])
+
+        # 有効質量の計算
+        try:
+            # テンソルの対角化
+            eigenvalues, eigenvectors = np.linalg.eig(Mtensor)
+            Mass = Constants.h_bar ** 2 / eigenvalues / Constants.ElMass * 1e20
+            Masses = [Mass[0], Mass[1], "from tensor"]
+            print(f"\t\t>>> Mass in {Color.BLUE}Column{Color.RESET}: {Mass[0]} m0 "
+                  f"{Color.GREEN}from tensor{Color.RESET}")
+            print(f"\t\t>>> Mass in {Color.BLUE}Transverse{Color.RESET}: {Mass[1]} m0 "
+                  f"{Color.GREEN}from tensor{Color.RESET}")
+        except Exception as e:
+            print(f"{Color.RED}\t>>> Error: {e}{Color.RESET}")
+            Mass_col = Constants.h_bar ** 2 / Mcc_int / Constants.ElMass * 1e20
+            Mass_trv = Constants.h_bar ** 2 / Mtt_int / Constants.ElMass * 1e20
+            print(f"\t\t>>> Mass in {Color.BLUE}Column{Color.RESET}: {Mass_col} m0 "
+                  f"from {Color.RED}NOT{Color.RESET} tensor")
+            print(f"\t\t>>> Mass in {Color.BLUE}Transverse{Color.RESET}: {Mass_trv} m0 "
+                  f"from {Color.RED}NOT{Color.RESET} tensor")
+            Mass = np.array([[], []])
+            Masses = [Mass_col, Mass_trv, "not from tensor"]
+
+        return dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array, Mass, Masses
 
     @staticmethod
     def calcEnergy(column, transv, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv):
@@ -567,7 +612,7 @@ class EffectiveMass:
         Energy_minus = B11 - B12
 
         # Kcolで一階微分
-        dB11_dKc = -2 * TI12 * column * math.sin(column * Kcol)
+        # dB11_dKc = -2 * TI12 * column * math.sin(column * Kcol)
         dB12R_dKc = -1 * (column / 2) * (
                 (TI13 + TI35) * math.sin(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) +
                 (TI23 + TI34) * math.sin(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
@@ -576,12 +621,12 @@ class EffectiveMass:
                 (TI35 - TI13) * math.cos(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) +
                 (TI23 - TI34) * math.cos(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
         )
-        dB12_dKc = (1 / B12) * (dB12R_dKc * B12R + dB12I_dKc * B12I)
-        dEplus_dKc = dB11_dKc + dB12_dKc
-        dEminus_dKc = dB11_dKc - dB12_dKc
+        # dB12_dKc = (1 / B12) * (dB12R_dKc * B12R + dB12I_dKc * B12I)
+        # dEplus_dKc = dB11_dKc + dB12_dKc
+        # dEminus_dKc = dB11_dKc - dB12_dKc
 
         # Ktrvで一階微分
-        dB11_dKt = 0
+        # dB11_dKt = 0
         dB12R_dKt = -1 * (transv / 2) * (
                 (TI13 + TI35) * math.sin(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) -
                 (TI23 + TI34) * math.sin(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
@@ -590,72 +635,65 @@ class EffectiveMass:
                 (TI35 - TI13) * math.cos(((column / 2) * Kcol) + ((transv / 2) * Ktrv)) -
                 (TI23 - TI34) * math.cos(((column / 2) * Kcol) - ((transv / 2) * Ktrv))
         )
-        dB12_dKt = (1 / B12) * (dB12R_dKt * B12R + dB12I_dKt * B12I)
-        dEplus_dKt = dB11_dKt + dB12_dKt
-        dEminus_dKt = dB11_dKt - dB12_dKt
+        # dB12_dKt = (1 / B12) * (dB12R_dKt * B12R + dB12I_dKt * B12I)
+        # dEplus_dKt = dB11_dKt + dB12_dKt
+        # dEminus_dKt = dB11_dKt - dB12_dKt
 
         # Kcolで二階微分
         d2B11_dKc2 = -2 * TI12 * (column ** 2) * math.cos(column * Kcol)
-        d2B12_dKc2 = ((-1 / (B12 ** 2)) * dB12_dKc) * ((1 / B12) * (B12R * dB12R_dKc + B12I * dB12I_dKc)) + (
-                (1 / B12) * ((dB12R_dKc ** 2) + (dB12I_dKc ** 2) - (((column / 2) ** 2) * (B12R ** 2) * (B12I ** 2)))
+        d2B12R_dKc2 = -(column / 2) ** 2 * (
+                (TI13 + TI35) * math.cos((column / 2) * Kcol + (transv / 2) * Ktrv) +
+                (TI23 + TI34) * math.cos((column / 2) * Kcol - (transv / 2) * Ktrv)
         )
+        d2B12I_dKc2 = -(column / 2) ** 2 * (
+                (TI35 - TI13) * math.sin((column / 2) * Kcol + (transv / 2) * Ktrv) +
+                (TI23 - TI34) * math.sin((column / 2) * Kcol - (transv / 2) * Ktrv)
+        )
+        d2B12_dKc2 = (1 / B12) * (
+                (dB12R_dKc ** 2) + (dB12I_dKc ** 2) + B12R * d2B12R_dKc2 + B12I * d2B12I_dKc2
+        ) - ((1 / B12) ** 3) * (
+                             (B12R * dB12R_dKc + B12I * dB12I_dKc) ** 2
+                     )
         d2Eplus_dKc2 = d2B11_dKc2 + d2B12_dKc2
         d2Eminus_dKc2 = d2B11_dKc2 - d2B12_dKc2
 
         # Ktrvで二階微分
         d2B11_dKt2 = 0
-        d2B12_dKc2 = ((-1 / (B12 ** 2)) * dB12_dKt) * ((1 / B12) * (B12R * dB12R_dKt + B12I * dB12I_dKt)) + (
-                (1 / B12) * ((dB12R_dKt ** 2) + (dB12I_dKt ** 2) - (((transv / 2) ** 2) * (B12R ** 2) * (B12I ** 2)))
+        d2B12R_dKt2 = -(transv / 2) ** 2 * (
+                (TI13 + TI35) * math.cos((column / 2) * Kcol + (transv / 2) * Ktrv) +
+                (TI23 + TI34) * math.cos((column / 2) * Kcol - (transv / 2) * Ktrv)
         )
-        d2Eplus_dKt2 = d2B11_dKt2 + d2B12_dKc2
-        d2Eminus_dKt2 = d2B11_dKt2 - d2B12_dKc2
+        d2B12I_dKt2 = -(transv / 2) ** 2 * (
+                (TI35 - TI13) * math.sin((column / 2) * Kcol + (transv / 2) * Ktrv) +
+                (TI23 - TI34) * math.sin((column / 2) * Kcol - (transv / 2) * Ktrv)
+        )
+        d2B12_dKt2 = (1 / B12) * ((dB12R_dKt ** 2) + (dB12I_dKt ** 2) + B12R * d2B12R_dKt2 + B12I * d2B12I_dKt2) - (
+                (1 / B12) ** 3) * (
+                             (B12R * dB12R_dKt + B12I * dB12I_dKt) ** 2
+                     )
+        d2Eplus_dKt2 = d2B11_dKt2 + d2B12_dKt2
+        d2Eminus_dKt2 = d2B11_dKt2 - d2B12_dKt2
 
-        return Energy_plus, Energy_minus
+        # KcolとKtrvでの混合微分
+        d2B11_dKcKt = 0
+        d2B12R_dKcdKt = -1 * (column / 2) * (transv / 2) * (
+                (TI13 + TI35) * math.cos((column / 2) * Kcol + (transv / 2) * Ktrv) -
+                (TI23 + TI34) * math.cos((column / 2) * Kcol - (transv / 2) * Ktrv)
+        )
+        d2B12I_dKcdKt = -1 * (column / 2) * (transv / 2) * (
+                (TI35 - TI13) * math.sin((column / 2) * Kcol + (transv / 2) * Ktrv) -
+                (TI23 - TI34) * math.sin((column / 2) * Kcol - (transv / 2) * Ktrv)
+        )
+        d2B12_dKcKt = (1 / B12) * (
+                    dB12R_dKc * dB12R_dKt + B12R * d2B12R_dKcdKt + dB12I_dKc * dB12I_dKt + B12I * d2B12I_dKcdKt) - (
+                              ((1 / B12) ** 3) * (B12R * dB12R_dKc + B12I * dB12I_dKc) * (
+                                  B12R * dB12R_dKt + B12I * dB12I_dKt)
+                      )
+        dEplus_dKcKt = d2B11_dKcKt + d2B12_dKcKt
+        dEminus_dKcKt = d2B11_dKcKt - d2B12_dKcKt
 
-
-class CalculateEnergy:
-    def __init__(self):
-        D_column, D_transv = sp.symbols("D_column D_transv")
-        ti12, ti13, ti23, ti34, ti35 = sp.symbols("TI12 TI13 TI23 TI34 TI35")
-        kcol, ktrv = sp.symbols("Kcol Ktrv")
-
-        B11 = 2 * ti12 * sp.cos(kcol * D_column)
-        B12R = ((ti13 + ti35) * sp.cos(kcol * (D_column / 2) + ktrv * (D_transv / 2))
-                + (ti23 + ti34) * sp.cos(kcol * (D_column / 2) - ktrv * (D_transv / 2)))
-        B12I = ((ti35 - ti13) * sp.sin(kcol * (D_column / 2) + ktrv * (D_transv / 2))
-                + (ti23 - ti34) * sp.sin(kcol * (D_column / 2) - ktrv * (D_transv / 2)))
-        B12 = sp.sqrt(B12R ** 2 + B12I ** 2)
-
-        self.Energy_plus = B11 + B12
-        self.Energy_minus = B11 - B12
-
-        diff = sp.diff(self.Energy_plus, kcol)
-
-    def Energy_Plus(self, column, transv, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv):
-        Energy_plus = self.Energy_plus.subs([('D_column', column),
-                                             ('D_transv', transv),
-                                             ('TI12', TI12),
-                                             ('TI13', TI13),
-                                             ('TI23', TI23),
-                                             ('TI34', TI34),
-                                             ('TI35', TI35),
-                                             ('Kcol', Kcol),
-                                             ('Ktrv', Ktrv)])
-
-        return Energy_plus
-
-    def Energy_Minus(self, column, transv, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv):
-        Energy_minus = self.Energy_minus.subs([('D_column', column),
-                                               ('D_transv', transv),
-                                               ('TI12', TI12),
-                                               ('TI13', TI13),
-                                               ('TI23', TI23),
-                                               ('TI34', TI34),
-                                               ('TI35', TI35),
-                                               ('Kcol', Kcol),
-                                               ('Ktrv', Ktrv)])
-
-        return Energy_minus
+        return (Energy_plus, Energy_minus,
+                d2Eplus_dKc2, d2Eplus_dKt2, dEplus_dKcKt, d2Eminus_dKc2, d2Eminus_dKt2, dEminus_dKcKt)
 
 
 class Constants:
