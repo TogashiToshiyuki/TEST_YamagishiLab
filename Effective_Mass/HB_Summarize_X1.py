@@ -5,6 +5,7 @@ import math
 import os
 
 import numpy as np
+import sympy as sp
 
 
 def main():
@@ -513,9 +514,11 @@ class EffectiveMass:
         if self.debug:
             print(f"\t>>> Kcol: {Kcol}\n\t>>> Ktrv: {Ktrv}")
         Energy_plus_array, Energy_minus_array = np.zeros((dev + 1, dev + 1)), np.zeros((dev + 1, dev + 1))
+        CE = CalculateEnergy()
         for i in range(dev + 1):
             for j in range(dev + 1):
-                Energy_plus, Energy_minus = self.calcEnergy(i, j, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv)
+                Energy_plus = CE.Energy_Plus(i, j, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv)
+                Energy_minus = CE.Energy_Minus(i, j, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv)
                 Energy_plus_array[i][j] = Energy_plus
                 Energy_minus_array[i][j] = Energy_minus
         if "HOMO" in Comment:
@@ -545,8 +548,8 @@ class EffectiveMass:
         E4M = np.zeros((2 * points + 1, 2 * points + 1))
         for i in range(len(Kcol_for_M)):
             for h in range(len(Ktrv_for_M)):
-                Energy_plus, Energy_minus = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35,
-                                                            Kcol_for_M[i], Ktrv_for_M[h])
+                Energy_plus = CE.Energy_Plus(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kcol_for_M[i], Ktrv_for_M[i])
+                Energy_minus = CE.Energy_Minus(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kcol_for_M[i], Ktrv_for_M[i])
                 if "HOMO" in Comment:
                     E4M[i][h] = Energy_plus
                 elif "LUMO" in Comment:
@@ -563,6 +566,51 @@ class EffectiveMass:
         Energy_plus = B11 + B12
         Energy_minus = B11 - B12
         return Energy_plus, Energy_minus
+
+
+class CalculateEnergy:
+    def __init__(self):
+        D_column, D_transv = sp.symbols("D_column D_transv")
+        ti12, ti13, ti23, ti34, ti35 = sp.symbols("TI12 TI13 TI23 TI34 TI35")
+        kcol, ktrv = sp.symbols("Kcol Ktrv")
+
+        B11 = 2 * ti12 * sp.cos(kcol * D_column)
+        B12R = ((ti13 + ti35) * sp.cos(kcol * (D_column / 2) + ktrv * (D_transv / 2))
+                + (ti23 + ti34) * sp.cos(kcol * (D_column / 2) - ktrv * (D_transv / 2)))
+        B12I = ((ti35 - ti13) * sp.sin(kcol * (D_column / 2) + ktrv * (D_transv / 2))
+                + (ti23 - ti34) * sp.sin(kcol * (D_column / 2) - ktrv * (D_transv / 2)))
+        B12 = sp.sqrt(B12R ** 2 + B12I ** 2)
+
+        self.Energy_plus = B11 + B12
+        self.Energy_minus = B11 - B12
+
+        diff = sp.diff(self.Energy_plus, kcol)
+
+    def Energy_Plus(self, column, transv, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv):
+        Energy_plus = self.Energy_plus.subs([('D_column', column),
+                                             ('D_transv', transv),
+                                             ('TI12', TI12),
+                                             ('TI13', TI13),
+                                             ('TI23', TI23),
+                                             ('TI34', TI34),
+                                             ('TI35', TI35),
+                                             ('Kcol', Kcol),
+                                             ('Ktrv', Ktrv)])
+
+        return Energy_plus
+
+    def Energy_Minus(self, column, transv, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv):
+        Energy_minus = self.Energy_minus.subs([('D_column', column),
+                                               ('D_transv', transv),
+                                               ('TI12', TI12),
+                                               ('TI13', TI13),
+                                               ('TI23', TI23),
+                                               ('TI34', TI34),
+                                               ('TI35', TI35),
+                                               ('Kcol', Kcol),
+                                               ('Ktrv', Ktrv)])
+
+        return Energy_minus
 
 
 class Constants:
