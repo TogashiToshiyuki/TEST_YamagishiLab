@@ -5,7 +5,8 @@ import math
 import os
 
 import numpy as np
-import sympy as sp
+from scipy.optimize import differential_evolution
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -28,7 +29,7 @@ def main():
 
     # Make band structure figures
     print("\n**********\nMaking band structures...")
-    Pattern = "2"
+    Pattern = Constants.Pattern
     FailFiles = []
     MassValues = []
     for Dat in DatList:
@@ -39,7 +40,9 @@ def main():
         else:
             if EM.debug:
                 EM.displayDef(Params)
-            EM.calcEffMass(Params, Dat)
+            dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array, Mass, Masses = EM.calcEffMass(Params)
+            MassValues.append(EM.mkEffectiveMassLine(Dat, Params, Masses))
+            EM.plotBandDisp(Params["Comment"], dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array, Masses, Pattern)
 
 
 def get_args():
@@ -315,6 +318,7 @@ class EffectiveMass:
 
             Dtrv = Dtrv1 + Dtrv2
             title = f"{name[0]}_{self.Tilt_Angle}-B12-{int(Angle)}d"
+            print(f"\t>>> {title}-HOMO.dat: ", end="")
             with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
                 Fhomo.write(f"{title}-HOMO\n")
                 Fhomo.write(f"{Constants.n}\n")
@@ -328,8 +332,9 @@ class EffectiveMass:
                 Fhomo.write(f"{T35_HOMO}\n")
                 Fhomo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
-            print(f"\t>>> {title}-HOMO.dat: Complete!")
+            print("Complete!")
 
+            print(f"\t>>> {title}-LUMO.dat: ", end="")
             with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
                 Flumo.write(f"{title}-LUMO\n")
                 Flumo.write(f"{Constants.n}\n")
@@ -343,7 +348,7 @@ class EffectiveMass:
                 Flumo.write(f"{T35_LUMO}\n")
                 Flumo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-LUMO.dat")
-            print(f"\t>>> {title}-LUMO.dat: Complete!")
+            print("Complete!")
 
         return DatList_temp
 
@@ -391,6 +396,7 @@ class EffectiveMass:
                     pass
 
             title = f"{name[0]}_{self.Tilt_Angle}-B3-{int(Angle)}d"
+            print(f"\t>>> {title}-HOMO.dat: ", end="")
             with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
                 Fhomo.write(f"{title}-HOMO\n")
                 Fhomo.write(f"{Constants.n}\n")
@@ -404,8 +410,9 @@ class EffectiveMass:
                 Fhomo.write(f"{T23_HOMO}\n")
                 Fhomo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
-            print(f"\t>>> {title}-HOMO.dat: Complete!")
+            print("Complete!")
 
+            print(f"\t>>> {title}-LUMO.dat: ", end="")
             with open(f"./BandInfo/{title}-LUMO.dat", "w") as Flumo:
                 Flumo.write(f"{title}-LUMO\n")
                 Flumo.write(f"{Constants.n}\n")
@@ -419,7 +426,7 @@ class EffectiveMass:
                 Flumo.write(f"{T23_LUMO}\n")
                 Flumo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-LUMO.dat")
-            print(f"\t>>> {title}-LUMO.dat: Complete!")
+            print("Complete!")
 
         return DatList_temp
 
@@ -508,97 +515,101 @@ class EffectiveMass:
         TI34 = Params["TI34"]
         TI35 = Params["TI35"]
 
-        # Calculate 2D Energy Dispersion
-        Kcol = round(math.pi / Dcol / dev, 10)
-        Ktrv = round(math.pi / Dtrv / dev, 10)
-        if self.debug:
-            print(f"\t>>> Kcol: {Kcol}\n\t>>> Ktrv: {Ktrv}")
-        Energy_plus_array, Energy_minus_array = np.zeros((dev + 1, dev + 1)), np.zeros((dev + 1, dev + 1))
-        for i in range(dev + 1):
-            for j in range(dev + 1):
-                Energy_plus, Energy_minus, _, _, _, _, _, _ = self.calcEnergy(i, j, TI12, TI13, TI23, TI34, TI35,
-                                                                              Kcol, Ktrv)
-                Energy_plus_array[i][j] = Energy_plus
-                Energy_minus_array[i][j] = Energy_minus
-        # バンドエッジのエネルギーとその位置を取得
+        # k空間の範囲を定義
+        Kcol_range = [-math.pi / Dcol, math.pi / Dcol]
+        Ktrv_range = [-math.pi / Dtrv, math.pi / Dtrv]
+
+        # エネルギーを最適化する関数を定義
+        def energy_func(k):
+            Kc, Kt = k
+            results = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kc, Kt)
+            if "HOMO" in Comment:
+                return -results[0]  # 最大化するためにマイナスを付ける
+            elif "LUMO" in Comment:
+                return results[1]  # 最小化
+            else:
+                print("Error: Comment should contain HOMO or LUMO")
+                return None
+
+        # 制約条件を設定（kの範囲内に収める）
+        bounds = [Kcol_range, Ktrv_range]
+
+        # 最適化を実行
+        res = differential_evolution(energy_func, bounds)
+
+        if not res.success:
+            print(f"\t{Color.RED}>>> Optimization failed.{Color.RESET}")
+            return None, None, None, None, None, None, None
+
+        # 最適化結果からkベクトルを取得
+        Kc_be, Kt_be = res.x
+
+        # エネルギー面を可視化
+        self.plot_EnergySurface(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Comment, Kc_be, Kt_be)
+
+        # バンド端のエネルギーを計算
+        results = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kc_be, Kt_be)
         if "HOMO" in Comment:
-            BandEdge_tmp = np.max(Energy_plus_array)
-            BandEdge_index = np.unravel_index(np.argmax(Energy_plus_array), Energy_plus_array.shape)
+            Energy = results[0]
+            d2E_dKc2 = results[2]
+            d2E_dKt2 = results[3]
+            d2E_dKcKt = results[4]
         elif "LUMO" in Comment:
-            BandEdge_tmp = np.min(Energy_minus_array)
-            BandEdge_index = np.unravel_index(np.argmin(Energy_minus_array), Energy_minus_array.shape)
+            Energy = results[1]
+            d2E_dKc2 = results[5]
+            d2E_dKt2 = results[6]
+            d2E_dKcKt = results[7]
         else:
-            BandEdge_tmp, BandEdge_index = 0, [0, 0]
-            print(f"{Color.RED}\t>>> Error: There is NO information specifying HOMO or LUMO in the file.\n"
-                  f"\t>>> The first line (Comment line) should contain HOMO or LUMO.{Color.RESET}")
-            self.HelpList.append(True)
-        self.help_check_exit()
-        if self.debug:
-            print(f"\t>>> Energy of the band edge: {BandEdge_tmp} meV "
-                  f"at ({BandEdge_index[0]}, {BandEdge_index[1]}) "
-                  f"({BandEdge_index[0] * Kcol}, {BandEdge_index[1] * Ktrv})")
+            Energy, d2E_dKc2, d2E_dKt2, d2E_dKcKt = 0, 0, 0, 0
 
-        # バンドエッジ近傍のエネルギーを再計算
-        points = 5
-        kc_ext = Kcol * BandEdge_index[0]
-        kt_ext = Ktrv * BandEdge_index[1]
+        print(f"\t\t>>> Energy of the band edge: {Energy} meV at ({round(Kc_be, 6)}, {round(Kt_be, 6)})")
 
-        # 有効質量計算用のk点とエネルギーの取得
-        kc4M = np.array([kc_ext + Kcol * (i - points) for i in range(2 * points + 1)])
-        kt4M = np.array([kt_ext + Ktrv * (i - points) for i in range(2 * points + 1)])
-        E4M = np.zeros((2 * points + 1, 2 * points + 1))
-        d2E_dKc2 = np.zeros_like(E4M)
-        d2E_dKt2 = np.zeros_like(E4M)
-        d2E_dKcKt = np.zeros_like(E4M)
-        for i in range(2 * points + 1):
-            for h in range(2 * points + 1):
-                results = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, kc4M[i], kt4M[h])
-                if "HOMO" in Comment:
-                    E = results[0]
-                    d2E_dKc2[i, h] = results[2]
-                    d2E_dKt2[i, h] = results[3]
-                    d2E_dKcKt[i, h] = results[4]
-                elif "LUMO" in Comment:
-                    E = results[1]
-                    d2E_dKc2[i, h] = results[5]
-                    d2E_dKt2[i, h] = results[6]
-                    d2E_dKcKt[i, h] = results[7]
-                else:
-                    E = 0
-                    print(f"{Color.RED}\t>>> Error: There is NO information specifying HOMO or LUMO at ({i}, {h})")
-                E4M[i, h] = E
-
-        # バンド端での二階微分の平均値を計算
-        center_idx = points
-        Mcc_int = np.mean(d2E_dKc2[center_idx - 1:center_idx + 2, center_idx - 1:center_idx + 2])
-        Mtt_int = np.mean(d2E_dKt2[center_idx - 1:center_idx + 2, center_idx - 1:center_idx + 2])
-        Mct_int = np.mean(d2E_dKcKt[center_idx - 1:center_idx + 2, center_idx - 1:center_idx + 2])
-
-        # 有効質量テンソルの計算
-        Mtensor = np.array([[Mcc_int, Mct_int], [Mct_int, Mtt_int]])
+        # 有効質量テンソルを構築
+        Mass_tensor = np.array([[d2E_dKc2, d2E_dKcKt],
+                                [d2E_dKcKt, d2E_dKt2]])
 
         # 有効質量の計算
         try:
             # テンソルの対角化
-            eigenvalues, eigenvectors = np.linalg.eig(Mtensor)
+            eigenvalues, eigenvectors = np.linalg.eig(Mass_tensor)
             Mass = Constants.h_bar ** 2 / eigenvalues / Constants.ElMass * 1e20
             Masses = [Mass[0], Mass[1], "from tensor"]
-            print(f"\t\t>>> Mass in {Color.BLUE}Column{Color.RESET}: {Mass[0]} m0 "
+            if self.debug:
+                print(f"\t\t>>> d2E_dKc2: {d2E_dKc2}")
+                print(f"\t\t>>> d2E_dKt2: {d2E_dKt2}")
+                print(f"\t\t>>> d2E_dKcKt: {d2E_dKcKt}")
+            print(f"\t>>> Mass in {Color.BLUE}Column{Color.RESET}: {Mass[0]} m0 "
                   f"{Color.GREEN}from tensor{Color.RESET}")
-            print(f"\t\t>>> Mass in {Color.BLUE}Transverse{Color.RESET}: {Mass[1]} m0 "
+            print(f"\t>>> Mass in {Color.BLUE}Transverse{Color.RESET}: {Mass[1]} m0 "
                   f"{Color.GREEN}from tensor{Color.RESET}")
         except Exception as e:
             print(f"{Color.RED}\t>>> Error: {e}{Color.RESET}")
-            Mass_col = Constants.h_bar ** 2 / Mcc_int / Constants.ElMass * 1e20
-            Mass_trv = Constants.h_bar ** 2 / Mtt_int / Constants.ElMass * 1e20
-            print(f"\t\t>>> Mass in {Color.BLUE}Column{Color.RESET}: {Mass_col} m0 "
+            Mass_col = Constants.h_bar ** 2 / d2E_dKc2 / Constants.ElMass * 1e20
+            Mass_trv = Constants.h_bar ** 2 / d2E_dKt2 / Constants.ElMass * 1e20
+            if self.debug:
+                print(f"\t\t>>> d2E_dKc2: {d2E_dKc2}")
+                print(f"\t\t>>> d2E_dKt2: {d2E_dKt2}")
+                print(f"\t\t>>> d2E_dKcKt: {d2E_dKcKt}")
+            print(f"\t>>> Mass in {Color.BLUE}Column{Color.RESET}: {Mass_col} m0 "
                   f"from {Color.RED}NOT{Color.RESET} tensor")
-            print(f"\t\t>>> Mass in {Color.BLUE}Transverse{Color.RESET}: {Mass_trv} m0 "
+            print(f"\t>>> Mass in {Color.BLUE}Transverse{Color.RESET}: {Mass_trv} m0 "
                   f"from {Color.RED}NOT{Color.RESET} tensor")
             Mass = np.array([[], []])
             Masses = [Mass_col, Mass_trv, "not from tensor"]
 
-        return dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array, Mass, Masses
+        # バンド図のためのデータを返す
+        Kcol_for_plot = round(math.pi / Dcol / dev, 10)
+        Ktrv_for_plot = round(math.pi / Dtrv / dev, 10)
+        Energy_plus_array, Energy_minus_array = np.zeros((dev + 1, dev + 1)), np.zeros((dev + 1, dev + 1))
+        for i in range(dev + 1):
+            for j in range(dev + 1):
+                Kc = Kcol_for_plot * i
+                Kt = Ktrv_for_plot * j
+                Energy_plus, Energy_minus, *_ = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kc, Kt)
+                Energy_plus_array[i][j] = Energy_plus
+                Energy_minus_array[i][j] = Energy_minus
+
+        return dev, Kcol_for_plot, Ktrv_for_plot, Energy_plus_array, Energy_minus_array, Mass, Masses
 
     @staticmethod
     def calcEnergy(column, transv, TI12, TI13, TI23, TI34, TI35, Kcol, Ktrv):
@@ -608,6 +619,10 @@ class EffectiveMass:
         B12I = ((TI35 - TI13) * math.sin(Kcol * (column / 2) + Ktrv * (transv / 2))
                 + (TI23 - TI34) * math.sin(Kcol * (column / 2) - Ktrv * (transv / 2)))
         B12 = math.sqrt(B12R ** 2 + B12I ** 2)
+        # Avoid division by zero
+        epsilon = 1e-20
+        B12 = max(B12, epsilon)
+
         Energy_plus = B11 + B12
         Energy_minus = B11 - B12
 
@@ -685,15 +700,220 @@ class EffectiveMass:
                 (TI23 - TI34) * math.sin((column / 2) * Kcol - (transv / 2) * Ktrv)
         )
         d2B12_dKcKt = (1 / B12) * (
-                    dB12R_dKc * dB12R_dKt + B12R * d2B12R_dKcdKt + dB12I_dKc * dB12I_dKt + B12I * d2B12I_dKcdKt) - (
-                              ((1 / B12) ** 3) * (B12R * dB12R_dKc + B12I * dB12I_dKc) * (
-                                  B12R * dB12R_dKt + B12I * dB12I_dKt)
+                dB12R_dKc * dB12R_dKt + B12R * d2B12R_dKcdKt + dB12I_dKc * dB12I_dKt + B12I * d2B12I_dKcdKt) - (
+                              ((1 / B12) ** 3) * (B12R * dB12R_dKc + B12I * dB12I_dKc) *
+                              (B12R * dB12R_dKt + B12I * dB12I_dKt)
                       )
         dEplus_dKcKt = d2B11_dKcKt + d2B12_dKcKt
         dEminus_dKcKt = d2B11_dKcKt - d2B12_dKcKt
 
         return (Energy_plus, Energy_minus,
                 d2Eplus_dKc2, d2Eplus_dKt2, dEplus_dKcKt, d2Eminus_dKc2, d2Eminus_dKt2, dEminus_dKcKt)
+
+    def plot_EnergySurface(self, Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Comment, Kc_be, Kt_be):
+        if self.debug:
+            # k空間を細かく分割
+            Kc_values = np.linspace(-math.pi / Dcol, math.pi / Dcol, 200)
+            Kt_values = np.linspace(-math.pi / Dtrv, math.pi / Dtrv, 200)
+            Kc_grid, Kt_grid = np.meshgrid(Kc_values, Kt_values)
+            Energy_grid = np.zeros_like(Kc_grid)
+
+            for i in range(len(Kc_values)):
+                for j in range(len(Kt_values)):
+                    Kc = Kc_values[i]
+                    Kt = Kt_values[j]
+                    results = self.calcEnergy(Dcol, Dtrv, TI12, TI13, TI23, TI34, TI35, Kc, Kt)
+                    if "HOMO" in Comment:
+                        Energy_grid[j, i] = results[0]
+                    elif "LUMO" in Comment:
+                        Energy_grid[j, i] = results[1]
+
+            plt.figure()
+            plt.contourf(Kc_grid, Kt_grid, Energy_grid, levels=50, cmap='viridis')
+            plt.colorbar(label='Energy (meV)')
+            plt.xlabel('Kc')
+            plt.ylabel('Kt')
+            plt.title(f'Energy Surface for {Comment}')
+
+            # 極値点をプロット
+            plt.plot(Kc_be, Kt_be, '.', markersize=10, label='Band Edge', color='red')
+            plt.legend()
+            plt.show()
+        else:
+            pass
+        return None
+
+    @staticmethod
+    def mkEffectiveMassLine(Dat, Params, Mass_array):
+        Direction_column = Params["Dcol"]
+        Direction_transv = Params["Dtrv"]
+        Comment = Params["Comment"]
+        Angle = Comment.split("-")[2].split("d")[0]
+
+        if Mass_array[2] == "from tensor":
+            line = (f"{Dat}\t{Angle}\t{Direction_column}\t{Direction_transv}\t"
+                    f"{Mass_array[0]}\t{Mass_array[1]}\t-\t-\t{Mass_array[0] / Mass_array[1]}\n")
+        else:
+            line = (f"{Dat}\t{Angle}\t{Direction_column}\t{Direction_transv}\t"
+                    f"-\t-\t{Mass_array[0]}\t{Mass_array[1]}\t{Mass_array[0] / Mass_array[1]}\n")
+        return line
+
+    @staticmethod
+    def EnergyPlotParts(dev, E_plus_array, E_minus_array, xUnitLen, D_col, D_trv):
+        x_dev_temp = np.full(dev + 1, xUnitLen)
+        x_dev_temp[0] = 0
+        y1_temp, y2_temp = [], []
+        for i in range(dev + 1):
+            y1_temp.append(E_plus_array[int(D_col[i]), int(D_trv[i])])
+            y2_temp.append(E_minus_array[int(D_col[i]), int(D_trv[i])])
+        return x_dev_temp, y1_temp, y2_temp
+
+    def plotBandDisp(self, Comment, dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array, Masses, Pattern):
+        # Make plot for Energy dispersion
+        ZeroTo = np.arange(0, dev + 1, 1)
+        ToZero = np.flipud(ZeroTo)
+        Zero = np.zeros(dev + 1)
+        Top = np.full(dev + 1, dev)
+
+        if "1" in Pattern:
+            xdev = []
+            y1 = []
+            y2 = []
+            xUnitLen = Ktrv
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, Top, ToZero)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            xUnitLen = Kcol
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, ToZero, Zero)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            xUnitLen = Ktrv
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, Zero, ZeroTo)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            xUnitLen = Kcol
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, ZeroTo, Top)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            xUnitLen = math.sqrt(Kcol ** 2 + Ktrv ** 2)
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, ToZero, ToZero)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            x, val = [], 0
+            for i in range(len(xdev)):
+                if i == 0:
+                    val = 0 + xdev[i]
+                    x.append(val)
+                else:
+                    val = val + xdev[i]
+                    x.append(val)
+
+            point1 = x[0]  # C point: pi/a,pi/b
+            point2 = x[dev + 1]  # X point: pi/a,0
+            point3 = x[2 * (dev + 1)]  # Gamma point: 0.0, 0.0
+            point4 = x[3 * (dev + 1)]  # Y point: 0,pi/b
+            point5 = x[4 * (dev + 1)]  # C point: pi/a, pi/b
+            point6 = x[-1]  # Gamma point: 0.0, 0.0
+            xtickvals = [point1, point2, point3, point4, point5, point6]
+            xticktexts = ["C", "X", "gamma", "Y", "C", "gamma"]
+
+        elif "2" in Pattern:
+            xdev = []
+            y1 = []
+            y2 = []
+
+            xUnitLen = Kcol
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, ToZero, Zero)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            xUnitLen = Ktrv
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, Zero, ZeroTo)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            xUnitLen = Kcol
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, ZeroTo, Top)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            xUnitLen = Ktrv
+            x_dev_temp, y1_temp, y2_temp = self.EnergyPlotParts(dev, Energy_plus_array, Energy_minus_array,
+                                                                xUnitLen, Top, ToZero)
+            xdev.extend(x_dev_temp)
+            y1.extend(y1_temp)
+            y2.extend(y2_temp)
+
+            x, val = [], 0
+            for i in range(len(xdev)):
+                if i == 0:
+                    val = 0 + xdev[i]
+                    x.append(val)
+                else:
+                    val = val + xdev[i]
+                    x.append(val)
+
+            # print(len(x))
+            point1 = x[0]  # X point: pi/a,0
+            point2 = x[dev + 1]  # Gamma point: 0.0, 0.0
+            point3 = x[2 * (dev + 1)]  # Y point: 0,pi/b
+            point4 = x[3 * (dev + 1)]  # C point: pi/a, pi/b
+            point5 = x[-1]  # X point: pi/a,0
+            xtickvals = [point1, point2, point3, point4, point5]
+            xticktexts = ["X", "gamma", "Y", "C", "X"]
+
+        else:
+            print(f"\t{Color.RED}>>> Error: Pattern should be 1 or 2.{Color.RESET}")
+            self.HelpList.append(True)
+            self.help_check_exit()
+            exit()
+
+        plt.figure()
+        plt.plot(x, y1, color="r")
+        plt.plot(x, y2, color="r")
+        for xtickval in xtickvals:
+            plt.axvline(xtickval, color="k", linewidth=0.75)
+        plt.xticks(xtickvals, xticktexts)
+        plt.tick_params(axis="both", direction="in", labelsize=14)
+        plt.xlim(xtickvals[0], xtickvals[-1])
+        plt.ylabel("E (meV)", fontsize=18)
+        plt.title(f"{Comment}: mc={round(Masses[0], 2)}m0, mt={round(Masses[1], 2)}m0 '{Masses[2]}'", fontsize=10)
+        plt.tight_layout()
+        if self.debug:
+            plt.show()
+
+        plotPNGname = Comment[:Comment.find(",")].strip()
+        plotPNGname = plotPNGname[:-2]
+        plt.savefig(f"./Figures/BandStructures/{plotPNGname}-{Pattern.strip()}.png", format="png",
+                    dpi=500, bbox_inches="tight")
+        plt.close()
+
+        with open(f"./BandInfo/{plotPNGname}-{Pattern.strip()}.txt", "w") as f:
+            for i in range(len(x)):
+                f.write(f"{x[i]}\t{y1[i]}\t{y2[i]}\n")
+
+        return None
 
 
 class Constants:
@@ -711,6 +931,8 @@ class Constants:
     h_bar = 6.582119569 * 10 ** (-13)
     # 近似のための分割数
     n = 100
+    # プロットパターン
+    Pattern = "2"
 
 
 class Color:
