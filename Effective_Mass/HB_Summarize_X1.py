@@ -4,6 +4,9 @@ import argparse
 import math
 import os
 import time
+import functools
+import datetime
+import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,11 +14,28 @@ import pandas as pd
 from matplotlib.animation import FuncAnimation
 from scipy.optimize import differential_evolution
 from tabulate import tabulate
+from pptx import Presentation
+from PIL import Image
+from pptx.util import Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+
+print = functools.partial(print, flush=True)
 
 
 def main():
     args, before = get_args()
     EM = EffectiveMass(args)
+
+    Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
+                     f"\t>>> The information entered here will be used as "
+                     f"{Color.GREEN}{Color.UNDERLINE}the name of the slide creator{Color.RESET}.\n"
+                     f"\tPlease enter your Name.\n"
+                     f"\t{Color.GREEN}>>> {Color.RESET}")
+    if Operator == "":
+        Operator = "ONE"
+    else:
+        pass
 
     # Make band information files
     print("\n**********\nMaking band information files...")
@@ -78,7 +98,46 @@ def main():
     print("\n**********\nMaking summary plots...")
     EM.Make_Summary_Plots(MaterName_tNd[1])
 
-    PPTX = SummarySlide(args)
+    print("\n**********\nMaking summary slide...")
+    PPTX = SummarySlide(args, Operator, MaterName_tNd[1])
+    OUTPUT_FILE_PATH = f"{PPTX.MaterName}_{MaterName_tNd[1]}_summary.pptx"
+    print(f"\t>>> Output File: {OUTPUT_FILE_PATH}")
+
+    PPTX.mkFrontCover()
+
+    for i in range(2):
+        slide = PPTX.add_slide()
+        PPTX.add_title(slide)
+        shapes = slide.shapes
+        shape = shapes.add_textbox(0, Constants.SLIDE_HEIGHT / 30, Constants.SLIDE_WIDTH, Constants.SLIDE_HEIGHT / 10)
+        text_frame = shape.text_frame
+        text_frame.clear()
+        pg = text_frame.paragraphs[0]
+        pg.font.size = Pt(36)
+        pg.alignment = PP_ALIGN.CENTER
+        pg.text = f"Slide {i + 1}"
+        pg.font.name = "メイリオ"
+
+    PPTX.add_EvsAngles()
+    PPTX.add_TIs()
+    PPTX.addStableBandFigures()
+    PPTX.add_EMvsAngles()
+
+    # 有効質量が小さいバンド構造のテンプレートを作成
+    slide = PPTX.add_slide()
+    PPTX.add_title(slide)
+    shapes = slide.shapes
+    shape = shapes.add_textbox(0, Constants.SLIDE_HEIGHT / 30, Constants.SLIDE_WIDTH, Constants.SLIDE_HEIGHT / 10)
+    text_frame = shape.text_frame
+    text_frame.clear()
+    pg = text_frame.paragraphs[0]
+    pg.font.size = Pt(36)
+    pg.font.name = "メイリオ"
+    pg.alignment = PP_ALIGN.CENTER
+    pg.text = "有効質量が小さいバンド構造"
+
+    # pptxファイルを出力する
+    PPTX.prs.save(OUTPUT_FILE_PATH)
 
     after = time.time()
     # End of the program
@@ -791,6 +850,7 @@ class EffectiveMass:
             plt.plot(Kc_be, Kt_be, '.', markersize=10, label='Band Edge', color='red')
             plt.legend()
             plt.show()
+            plt.close()
         else:
             pass
         return None
@@ -953,7 +1013,10 @@ class EffectiveMass:
         plt.title(f"{Comment}: mc={round(Masses[0], 2)}m0, mt={round(Masses[1], 2)}m0 '{Masses[2]}'", fontsize=10)
         plt.tight_layout()
         if self.debug:
-            plt.show()
+            # plt.show()
+            pass
+        else:
+            pass
 
         plotPNGname = Comment[:Comment.find(",")].strip()
         plotPNGname = plotPNGname[:-2]
@@ -1345,12 +1408,18 @@ class EffectiveMass:
 
 
 class SummarySlide:
-    def __init__(self, args):
+    def __init__(self, args, Operator, Tilt_Angle):
         self.args = args
         self.MaterName = args.MaterName
         self.debug = args.debug
         self.messages = []
         self.HelpList = []
+        self.prs = Presentation()
+        self.prs.slide_width = Constants.SLIDE_WIDTH
+        self.prs.slide_height = Constants.SLIDE_HEIGHT
+        self.Operator = Operator
+        self.IMG_DIR = "./Figures"
+        self.Tilt_Angle = Tilt_Angle
 
     # Displays messages and exits if unexpected behavior is detected.
     def help_check_exit(self):
@@ -1388,6 +1457,733 @@ class SummarySlide:
         self.messages.clear()
         return None
 
+    def mkFrontCover(self):
+        """
+        表紙のスライドを作成する
+        :return:
+        """
+        slide = self.add_slide()
+
+        self.add_title(slide)
+
+        # テキストボックスの追加(for title)
+        shape = slide.shapes.add_textbox(0, Constants.IMG_CENTER_Y / 2 - 800000,
+                                         Constants.SLIDE_WIDTH, Constants.IMG_CENTER_Y)
+        text = f"集合体構造最適化-{self.MaterName}_{self.Tilt_Angle}"
+        text_frame = shape.text_frame
+        text_frame.clear()
+        # 垂直方向の中央揃えにする
+        text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+        # パラグラフの追加
+        pg = text_frame.paragraphs[0]
+        # フォントサイズを大きくする
+        pg.font.size = Pt(36)
+        # 左右中央揃えにする
+        pg.alignment = PP_ALIGN.CENTER
+        pg.font.bold = False
+        # フォントをメイリオにする
+        pg.font.name = "メイリオ"
+        pg.text = text
+
+        print(f"\t>>> Title Name: {text}")
+
+        # テキストボックスの追加(for 作成者、作成日時)
+        shape = slide.shapes.add_textbox(0, Constants.IMG_CENTER_Y, Constants.SLIDE_WIDTH, Constants.IMG_CENTER_Y)
+        Current_Time = datetime.datetime.now()
+        text = (f"{Current_Time.year}/{Current_Time.month}/{Current_Time.day}\n"
+                f"{self.Operator}")
+        text_frame = shape.text_frame
+        text_frame.clear()
+        pg = text_frame.paragraphs[0]
+        pg.font.size = Pt(32)
+        pg.alignment = PP_ALIGN.CENTER
+        pg.font.name = "メイリオ"
+        # 色をグレーにする
+        pg.font.color.rgb = RGBColor(0x80, 0x80, 0x80)
+        pg.text = text
+
+        print(f"\t>>> Creation day: {Current_Time.year}/{Current_Time.month}/{Current_Time.day}\n"
+              f"\t>>> Operator: {self.Operator}")
+        return None
+
+    def add_slide(self):
+        """
+            受け取ったプレゼンテーションオブジェクトにスライドを追加し、追加されたスライドオブジェクトを返す。
+            :return: スライドオブジェクト
+            """
+        # 白紙スライドの追加(ID=6は白紙スライド)
+        blank_slide_layout = self.prs.slide_layouts[6]
+        slide = self.prs.slides.add_slide(blank_slide_layout)
+        return slide
+
+    def add_title(self, slide):
+        """
+        スライドに物質名を追加する
+        :param slide: スライド
+        :type slide: Slide object
+        :return: なし
+        """
+        shapes = slide.shapes
+        # MaterNameの文字数に応じて枠の横幅, 縦幅を調整する
+        Box_Width = len(self.MaterName) * 230000
+        Box_Height = 200000
+        shape = shapes.add_textbox(50000, 50000, Box_Width, Box_Height)
+        text_frame = shape.text_frame
+        text_frame.clear()
+        pg = text_frame.paragraphs[0]
+        pg.font.size = Pt(10)
+        pg.alignment = PP_ALIGN.CENTER
+        pg.text = f"{self.MaterName}"
+        pg.font.name = "メイリオ"
+        # テキストボックスに枠線を追加
+        line = shape.line
+        # 枠線の色を黄緑にする
+        line.color.rgb = RGBColor(0x00, 0x80, 0x00)
+        line.width = Pt(1)
+        # 文字を上下中央揃えにする
+        text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+        return
+
+    @staticmethod
+    def get_aspect(File_Name):
+        """
+        画像サイズを取得してアスペクト比を得る
+        :param File_Name:　画像のファイル名
+        :return: アスペクト比
+        """
+        im = Image.open(File_Name)
+        im_width, im_height = im.size
+        aspect_ratio = im_width / im_height
+        return aspect_ratio
+
+    def add_EvsAngles(self):
+        """
+        EvsAngles画像のファイル名を取得し、スライドに追加する
+
+        IMG_DIRディレクトリから指定されたMaterNameに対応する
+        EvsAngles画像を検索し、昇順にソートしてからスライドに
+        貼り付けます。
+
+        :return: なし
+        :rtype: None
+        """
+        print("\n\tAdding Energy vs Angle images...")
+
+        # EvsAnglesの画像のファイル名を取得
+        EvsAngles = glob.glob(f"{self.IMG_DIR}/EvsAngle/{self.MaterName}_3molp*-12_EvsAngle.png")
+
+        # pngで終了するファイル名のみ抽出。貼り付けたい画像の拡張子に応じて変える
+        EvsAngles = [name for name in EvsAngles if name.endswith(".png")]
+
+        # 昇順にソート（この順番でスライドに貼り付けられる）
+        EvsAngles.sort()
+
+        # スライドの作成
+        self.mkEvsAngles(EvsAngles)
+
+        print(f"\t>>> {Color.GREEN}Complete!{Color.RESET}")
+        return
+
+    def mkEvsAngles(self, Names):
+        """
+        指定された画像をスライドに追加します。
+
+        画像リストから順にスライドに画像を追加し、配置を調整します。
+        Debugモードが有効な場合、追加する画像の情報をコンソールに表示します。
+        :param Names: 追加する画像ファイル名のリスト
+        :type Names: list[str]
+        :return: なし
+        :rtype: None
+        """
+        # 新しいページを作成
+        slide = self.add_slide()
+
+        self.add_title(slide)
+
+        # タイトルを追加
+        shapes = slide.shapes
+        shape = shapes.add_textbox(0, Constants.SLIDE_HEIGHT / 30, Constants.SLIDE_WIDTH, Constants.SLIDE_HEIGHT / 10)
+        text_frame = shape.text_frame
+        # 初期状態の空のパラグラフを使用してテキストを設定
+        text_frame.clear()  # 空のパラグラフをクリア
+        pg = text_frame.paragraphs[0]  # デフォルトのパラグラフを取得
+        pg.font.size = Pt(36)
+        pg.alignment = PP_ALIGN.CENTER
+        pg.text = "Energy vs Angle"
+        pg.font.name = "メイリオ"
+
+        # コメントを追加
+        shape = shapes.add_textbox(Constants.SLIDE_WIDTH * 0.05, Constants.IMG_CENTER_Y + Constants.IMG_CENTER_Y / 2,
+                                   Constants.SLIDE_WIDTH * 0.9, Constants.SLIDE_HEIGHT / 5)
+        text_frame = shape.text_frame
+        text_frame.clear()
+        pg = text_frame.paragraphs[0]
+        pg.font.size = Pt(14)
+        pg.font.name = "メイリオ"
+        pg.text = "[Comment]"
+
+        i = 0
+        for name in Names:
+            if self.debug:
+                print(f"\t>>> Adding {name}...")
+            aspect_ratio = self.get_aspect(name)
+            # 画像のサイズを変換
+            img_display_width = Constants.SLIDE_WIDTH / 3
+            img_display_height = img_display_width / aspect_ratio
+
+            # 画像の座標を計算
+            left = img_display_width * i
+            top = (Constants.SLIDE_HEIGHT - img_display_height) / 2 - Constants.SLIDE_HEIGHT / 15
+            if self.debug:
+                print(f"\t\t>>> left coordinate: {left}")
+                print(f"\t\t>>> top coordinate: {top}")
+
+            # 画像をスライドに追加
+            slide.shapes.add_picture(name, left, top, width=img_display_width)
+            i = i + 1
+        return
+
+    def add_TIs(self):
+        """
+        TIs画像のファイル名を取得し、スライドに追加する
+        :return:
+        """
+        print("\n\tAdding Transfer Integral images...")
+
+        # TIsの画像のファイル名を取得
+        p1_TIs = glob.glob(f"{self.IMG_DIR}/TIvsAngle/{self.MaterName}_3molp1_{self.Tilt_Angle}-*_TIs.png")
+        p2_TIs = glob.glob(f"{self.IMG_DIR}/TIvsAngle/{self.MaterName}_3molp2_{self.Tilt_Angle}-*_TIs.png")
+        p3_TIs = glob.glob(f"{self.IMG_DIR}/TIvsAngle/{self.MaterName}_3molp3_{self.Tilt_Angle}-*_TIs.png")
+
+        # pngで終了するファイル名のみ抽出。貼り付けたい画像の拡張子に応じて変える
+        p1_TIs = [name for name in p1_TIs if name.endswith(".png")]
+        p2_TIs = [name for name in p2_TIs if name.endswith(".png")]
+        p3_TIs = [name for name in p3_TIs if name.endswith(".png")]
+
+        # 昇順にソート（この順番でスライドに貼り付けられる）
+        p1_TIs.sort()
+        p2_TIs.sort()
+        p3_TIs.sort()
+
+        # スライドの作成
+        self.mkTIs(p1_TIs, "p1")
+        self.mkTIs(p2_TIs, "p2")
+        self.mkTIs(p3_TIs, "p3")
+
+        print(f"\t>>> {Color.GREEN}Complete!{Color.RESET}")
+        return
+
+    def mkTIs(self, Names, position):
+        """
+        指定された画像をスライドに追加し、位置とサイズを調整する
+
+        この関数は、名前リストに基づいてスライドに画像を追加します。
+        各画像のアスペクト比を計算し、スライド上で適切な位置と
+        サイズに調整します。さらに、オプションでデバッグ情報を
+        コンソールに出力します。
+        :param list Names: 追加する画像のファイル名のリスト。
+        :param str position: 画像の位置を示す文字列。
+
+        :return: なし
+        :rtype: None
+        :raises FileNotFoundError: 指定された画像ファイルが存在しない場合に発生。
+        """
+        # 新しいページを作成
+        slide = self.add_slide()
+        self.add_title(slide)
+
+        i = 0
+        for name in Names:
+            if self.debug:
+                print(f"\t>>> Adding {name}...")
+            aspect_ratio = self.get_aspect(name)
+
+            # 画像のサイズを調整
+            # スライドと画像のアスペクト比に応じて処理を分岐
+            if aspect_ratio > Constants.SLIDE_ASPECT_RATIO:
+                img_display_width = Constants.SLIDE_WIDTH / 2
+                img_display_height = img_display_width / aspect_ratio
+            else:  # 画像のほうが縦長だったら縦めいっぱいに広げる
+                img_display_height = Constants.SLIDE_HEIGHT / 2
+                img_display_width = img_display_height * aspect_ratio
+
+            # 画像の座標を計算
+            left, top = 0, 0
+            # 12
+            if i == 0:
+                left = (Constants.IMG_CENTER_X - img_display_width) / 2
+                top = (Constants.SLIDE_HEIGHT / 2 - img_display_height) / 2 + (Constants.SLIDE_HEIGHT / 15)
+            # 23
+            if i == 1:
+                left = (Constants.IMG_CENTER_X - img_display_width) / 2
+                top = (Constants.SLIDE_HEIGHT / 2 - img_display_height) / 2 + Constants.IMG_CENTER_Y
+            # 31
+            if i == 2:
+                left = (Constants.IMG_CENTER_X - img_display_width) / 2 + Constants.IMG_CENTER_X
+                top = (Constants.SLIDE_HEIGHT / 2 - img_display_height) / 2 + Constants.IMG_CENTER_Y
+
+            if self.debug:
+                print(f"\t\t>>> left coordinate: {left}")
+                print(f"\t\t>>> top coordinate: {top}")
+
+            # 画像をスライドに追加
+            if aspect_ratio > Constants.SLIDE_ASPECT_RATIO:
+                slide.shapes.add_picture(name, left, top, width=img_display_width)
+            else:
+                slide.shapes.add_picture(name, left, top, height=img_display_height)
+            i = i + 1
+
+        # タイトルを追加
+        shapes = slide.shapes
+        shape = shapes.add_textbox(0, Constants.SLIDE_HEIGHT / 30, Constants.SLIDE_WIDTH, Constants.SLIDE_HEIGHT / 10)
+        text_frame = shape.text_frame
+        # 初期状態の空のパラグラフを使用してテキストを設定
+        text_frame.clear()  # 空のパラグラフをクリア
+        pg = text_frame.paragraphs[0]  # デフォルトのパラグラフを取得
+        pg.font.size = Pt(36)
+        pg.alignment = PP_ALIGN.CENTER
+        pg.text = f"Transfer Integral vs Angle - {position}"
+        pg.font.name = "メイリオ"
+
+        # コメントを追加
+        shape = shapes.add_textbox(Constants.IMG_CENTER_X, Constants.SLIDE_HEIGHT / 7,
+                                   Constants.IMG_CENTER_X, Constants.IMG_CENTER_Y - Constants.SLIDE_HEIGHT / 7)
+        text_frame = shape.text_frame
+        text_frame.clear()
+        pg = text_frame.paragraphs[0]
+        pg.font.size = Pt(14)
+        pg.font.name = "メイリオ"
+        pg.text = "[Comment]"
+        return
+
+    def add_EMvsAngles(self):
+        """
+        EMvsAnglesの画像ファイルを取得し、スライドに追加する。
+
+        指定されたディレクトリ内のEMvsAnglesに関連する
+        画像ファイル（HOMOおよびLUMO）を取得し、指定された
+        スライドに追加します。画像ファイルはpng形式のみを対象とし、
+        mkEMvsAngles関数を利用してスライドに配置します。
+
+        :return: なし
+        :rtype: None
+        """
+        print("\n\tAdding EMvsAngles images...")
+        # EMvsAnglesの画像のファイル名を取得
+        B12_EMvsAngles_HOMO = glob.glob(f"{self.IMG_DIR}/{self.MaterName}_{self.Tilt_Angle}-B12-HOMO_EMvsAngle.png")
+        B12_EMvsAngles_LUMO = glob.glob(f"{self.IMG_DIR}/{self.MaterName}_{self.Tilt_Angle}-B12-LUMO_EMvsAngle.png")
+        B3_EMvsAngles_HOMO = glob.glob(f"{self.IMG_DIR}/{self.MaterName}_{self.Tilt_Angle}-B3-HOMO_EMvsAngle.png")
+        B3_EMvsAngles_LUMO = glob.glob(f"{self.IMG_DIR}/{self.MaterName}_{self.Tilt_Angle}-B3-LUMO_EMvsAngle.png")
+
+        # pngで終了するファイル名のみ抽出。貼り付けたい画像の拡張子に応じて変える
+        B12_EMvsAngles_HOMO = [name for name in B12_EMvsAngles_HOMO if name.endswith(".png")]
+        B12_EMvsAngles_LUMO = [name for name in B12_EMvsAngles_LUMO if name.endswith(".png")]
+        B3_EMvsAngles_HOMO = [name for name in B3_EMvsAngles_HOMO if name.endswith(".png")]
+        B3_EMvsAngles_LUMO = [name for name in B3_EMvsAngles_LUMO if name.endswith(".png")]
+
+        # スライドの作成
+        self.mkEMvsAngles(B12_EMvsAngles_HOMO)
+        self.mkEMvsAngles(B12_EMvsAngles_LUMO)
+        self.mkEMvsAngles(B3_EMvsAngles_HOMO)
+        self.mkEMvsAngles(B3_EMvsAngles_LUMO)
+
+        print(f"\t>>> {Color.GREEN}Complete!{Color.RESET}")
+        return
+
+    def mkEMvsAngles(self, Names):
+        """
+        EMvsAngles画像をスライドに配置する。
+
+        画像ファイルのリストに基づいて、新しいスライドを作成し、
+        画像を配置します。スライドと画像のアスペクト比に応じて、
+        画像のサイズを調整し、センタリングして追加します。
+
+        :param Names: スライドに追加する画像ファイルのリスト
+        :type Names: list[str]
+        :return: なし
+        :rtype: None
+        """
+        # 新しいページを作成
+        slide = self.add_slide()
+        self.add_title(slide)
+        for name in Names:
+            if self.debug:
+                print(f"\t\tAdding {name}... ", end="")
+            aspect_ratio = self.get_aspect(name)
+
+            # タイトルを追加
+            shapes = slide.shapes
+            shape = shapes.add_textbox(0, Constants.SLIDE_HEIGHT / 30, Constants.SLIDE_WIDTH,
+                                       Constants.SLIDE_HEIGHT / 10)
+            text_frame = shape.text_frame
+            # 初期状態の空のパラグラフを使用してテキストを設定
+            text_frame.clear()  # 空のパラグラフをクリア
+            pg = text_frame.paragraphs[0]  # デフォルトのパラグラフを取得
+            pg.font.size = Pt(24)
+            pg.alignment = PP_ALIGN.CENTER
+            pg.text = f"Effective Mass, Energy vs Angle - {name.split('-')[1]} - {name.split('-')[2].split('_')[0]}"
+            pg.font.name = "メイリオ"
+
+            # スライドと画像のアスペクト比に応じて処理を分岐
+            # 画像のほうが横長だったら横めいっぱいに広げる
+            if aspect_ratio > Constants.SLIDE_ASPECT_RATIO:
+                img_display_width = Constants.SLIDE_WIDTH
+                img_display_height = img_display_width / aspect_ratio
+            else:  # 画像のほうが縦長だったら縦めいっぱいに広げる
+                img_display_height = Constants.SLIDE_HEIGHT
+                img_display_width = img_display_height * aspect_ratio
+
+            # センタリングする場合の画像の左上座標を計算
+            left = Constants.IMG_CENTER_X - img_display_width / 2
+            top = Constants.IMG_CENTER_Y - img_display_height / 2
+
+            # 画像をスライドに追加
+            if aspect_ratio > Constants.SLIDE_ASPECT_RATIO:
+                slide.shapes.add_picture(name, left, top, width=img_display_width)
+            else:
+                slide.shapes.add_picture(name, left, top, height=img_display_height)
+            if self.debug:
+                print(f"{Color.GREEN}Complete!{Color.RESET}")
+            return None
+
+    def addStableBandFigures(self):
+        """
+        最安定構造におけるバンド図の画像をスライドに追加する。
+        :return: なし
+        """
+        print("\n\tAdding Most Stable Band images...")
+
+        # 最安定構造における有効質量を取得する
+        with open(f"{self.MaterName}_{self.Tilt_Angle}_EffMasses.txt", "r") as f:
+            # 最初の二行は読み飛ばす
+            f.readline()
+            f.readline()
+            lines = f.readlines()
+        Raw_Title = [line.split("\t")[0] for line in lines]
+        # column方向の有効質量を取得する(from tensorの時は4、そうじゃない時は6に入っている)
+        MCol_from_tensor = [line.split("\t")[4] for line in lines]
+        MCol = [line.split("\t")[6] for line in lines]
+        if self.debug:
+            print(f"\t\t>>> Getting {Color.GREEN}Column{Color.RESET} Effective Masses...")
+            print(f"\t\tTitle\tMCol_from_tensor\tMCol")
+            for line in lines:
+                split_line = line.split('\t')
+                print(f"\t\t{split_line[0]}\t{split_line[4]}\t{split_line[6]}")
+            print("")
+        # MCol_from_tensorとMColを比較して、各行の要素が"-"ではない方をMColとして取得する
+        MCol = [MCol[i] if MCol[i] != "-" else MCol_from_tensor[i] for i in range(len(MCol))]  # 後で調べる
+        # Transverse方向の有効質量を取得する(from tensorの時は5、そうじゃない時は7に入っている)
+        MTrv_from_tensor = [line.split("\t")[5] for line in lines]
+        MTrv = [line.split("\t")[7] for line in lines]
+        if self.debug:
+            print(f"\t\t>>> Getting {Color.GREEN}Transverse{Color.RESET} Effective Masses...")
+            print(f"\t\tTitle\tMC0l_from_tensor\tMCol")
+            for line in lines:
+                split_line = line.split('\t')
+                print(f"\t\t{split_line[0]}\t{split_line[5]}\t{split_line[7]}")
+            print("")
+        # MTrv_from_tensorとMTrvを比較して、各行の要素が"-"ではない方をMTrvとして取得する
+        MTrv = [MTrv[i] if MTrv[i] != "-" else MTrv_from_tensor[i] for i in range(len(MTrv))]  # 後で調べる
+        if self.debug:
+            print(f"\t************************* Effective Masses for B12 *************************")
+            print("\tTitle\tMCol\tMTrv")
+            for i in range(len(MCol)):
+                if "-B12-" in Raw_Title[i]:
+                    print(f"\t{Raw_Title[i]}\t{round(float(MCol[i]), 6)}\t{round(float(MTrv[i]), 6)}")
+            print(f"\t****************************************************************************")
+
+        # エネルギーを取得する
+        # p1の最小エネルギーとその角度を取得する
+        with open(f"{self.MaterName}_3molp1_{self.Tilt_Angle}_results/"
+                  f"{self.MaterName}_3molp1_{self.Tilt_Angle}_min.txt", "r") as f:
+            # 最初の二行は読み飛ばす
+            f.readline()
+            f.readline()
+            lines = f.readlines()
+        # linesの各行の要素の1番目(角度)を取得する
+        angles = [line.split()[0] for line in lines]
+
+        # linesの各行の４番目の要素(エネルギー)を取得する
+        p1_band_energys = [line.split()[3] for line in lines]
+        if self.debug:
+            print(f"\n\t\t>>> Getting {Color.GREEN}p1{Color.RESET} Band Energies...")
+            print(f"\t\tFile Name: {self.MaterName}_{self.Tilt_Angle}_3molp1_results/"
+                  f"{self.MaterName}_{self.Tilt_Angle}_3molp1_min.txt")
+            print(f"\t\tAngle\tEnergy")
+            for angle in angles:
+                print(f"\t\t{angle}\t{p1_band_energys[angles.index(angle)]}")
+
+        # p2の最小エネルギーとその角度を取得する
+        with open(f"{self.MaterName}_3molp2_{self.Tilt_Angle}_results/"
+                  f"{self.MaterName}_3molp2_{self.Tilt_Angle}_min.txt", "r") as f:
+            # 最初の二行は読み飛ばす
+            f.readline()
+            f.readline()
+            lines = f.readlines()
+        # linesの各行の要素の1番目(角度)を取得する
+        angles = [line.split()[0] for line in lines]
+
+        # linesの各行の４番目の要素(エネルギー)を取得する
+        p2_band_energys = [line.split()[3] for line in lines]
+        if self.debug:
+            print(f"\n\t\t>>> Getting {Color.GREEN}p2{Color.RESET} Band Energies...")
+            print(f"\t\tFile Name: {self.MaterName}_{self.Tilt_Angle}_3molp2_results/"
+                  f"{self.MaterName}_{self.Tilt_Angle}_3molp2_min.txt")
+            print(f"\t\tAngle\tEnergy")
+            for angle in angles:
+                print(f"\t\t{angle}\t{p2_band_energys[angles.index(angle)]}")
+
+        # p1とp2の最小エネルギーを各角度ごとに足し合わせる
+        p1_p2_band_energys = [float(p1_band_energys[i]) + float(p2_band_energys[i]) for i in
+                              range(len(p1_band_energys))]
+        if self.debug:
+            print(f"\n"
+                  f"\t\t>>> Getting {Color.GREEN}p1+p2{Color.RESET} Band Energies\n"
+                  f"\t\tAngle\tP1 Energy\tP2 Energy\tP1+P2 Energy")
+            for angle in angles:
+                # 角度、p1のエネルギー、p2のエネルギー、p1+p2のエネルギーを表示
+                print(f"\t\t{angle}\t{p1_band_energys[angles.index(angle)]}\t"
+                      f"{p2_band_energys[angles.index(angle)]}\t{p1_p2_band_energys[angles.index(angle)]}")
+        # p1_p2_band_energy'sの最小値とその要素が何番目の要素かを取得する
+        min_p1_p2_band_energy = min(p1_p2_band_energys)
+        min_index = p1_p2_band_energys.index(min_p1_p2_band_energy)
+        # 最小値の角度を取得する
+        min_angle = angles[min_index]
+        if self.debug:
+            print(f"\n"
+                  f"\t\t{Color.GREEN}min_angle: {min_angle}{Color.RESET}")
+            print(f"\t\t{Color.GREEN}min_band_figure: {min_p1_p2_band_energy}{Color.RESET}\n")
+
+        # B12の最小エネルギーとその角度を取得する
+        B12_HOMO_Min_MCol, B12_HOMO_Min_MTrv, B12_LUMO_Min_MCol, B12_LUMO_Min_MTrv, structure = 0, 0, 0, 0, []
+        if self.debug:
+            print(f"\t\tGetting Angle and Effective Mass for minimum Energy...")
+        for i in range(len(Raw_Title)):
+            parts = Raw_Title[i].split("/")[2].split("-")
+            count = 0
+            for part in parts:
+                if part in ["B12", "B3"]:
+                    structure = [part, count]
+                count = count + 1
+            Raw_Title[i].split("/")[2].split("-")[structure[1] + 1].replace("d", "")
+            if structure[0] == "B12":
+                Now_Angle = int(Raw_Title[i].split("/")[2].split("-")[structure[1] + 1].replace("d", ""))
+                if self.debug:
+                    print(f"\t\tNow_Angle: {Now_Angle}\tmin_angle: {min_angle}\t{Now_Angle == int(float(min_angle))}")
+                if Now_Angle == int(float(min_angle)):
+                    if self.debug:
+                        print(f"\t\t{Raw_Title[i].split("/")[2].split("-")[3].split(".")[0]}")
+                    if Raw_Title[i].split("/")[2].split("-")[structure[1] + 2].split(".")[0] == "HOMO":
+                        B12_HOMO_Min_MCol = MCol[i]
+                        B12_HOMO_Min_MTrv = MTrv[i]
+                        if self.debug:
+                            print(f"\t\tMCol: {B12_HOMO_Min_MCol}\t\tMTrv: {B12_HOMO_Min_MTrv}\t\t"
+                                  f"Mcol/Mtrv: {float(B12_HOMO_Min_MCol) / float(B12_HOMO_Min_MTrv)}\n")
+                    elif Raw_Title[i].split("/")[2].split("-")[structure[1] + 2].split(".")[0] == "LUMO":
+                        B12_LUMO_Min_MCol = MCol[i]
+                        B12_LUMO_Min_MTrv = MTrv[i]
+                        if self.debug:
+                            print(f"\t\tMCol: {B12_LUMO_Min_MCol}\t\tMTrv: {B12_LUMO_Min_MTrv}\t\t"
+                                  f"Mcol/Mtrv: {float(B12_LUMO_Min_MCol) / float(B12_LUMO_Min_MTrv)}\n")
+
+            else:
+                pass
+        self.mkStableBandFigures(12, min_angle, min_p1_p2_band_energy,
+                                 B12_HOMO_Min_MCol, B12_HOMO_Min_MTrv, B12_LUMO_Min_MCol, B12_LUMO_Min_MTrv)
+
+        if self.debug:
+            print(f"\t************************* Effective Masses for B3 *************************")
+            print("\tTitle\tMCol\tMTrv")
+            for i in range(len(MCol)):
+                if "-B3-" in Raw_Title[i]:
+                    print(f"\t{Raw_Title[i]}\t{round(float(MCol[i]), 6)}\t{round(float(MTrv[i]), 6)}")
+            print(f"\t****************************************************************************")
+
+        # p3の最小エネルギーとその角度を取得する
+        with open(f"{self.MaterName}_3molp3_{self.Tilt_Angle}_results/"
+                  f"{self.MaterName}_3molp3_{self.Tilt_Angle}_min.txt", "r") as f:
+            # 最初の二行は読み飛ばす
+            f.readline()
+            f.readline()
+            lines = f.readlines()
+        # linesの各行の要素の1番目(角度)を取得する
+        angles = [line.split()[0] for line in lines]
+
+        # linesの各行の４番目の要素(エネルギー)を取得する
+        band_energy = [line.split()[3] for line in lines]
+        if self.debug:
+            print(f"\n\t\t>>> Getting {Color.GREEN}p3{Color.RESET} Band Energies...")
+            print(f"\t\tFile Name: {self.MaterName}_{self.Tilt_Angle}_3molp3_results/"
+                  f"{self.MaterName}_{self.Tilt_Angle}_3molp3_min.txt")
+            print(f"\t\tAngle\tEnergy")
+            for angle in angles:
+                print(f"\t\t{angle}\t{band_energy[angles.index(angle)]}")
+
+        # band_figuresの最小値とその要素が何番目の要素かを取得する
+        min_band_energy = min(band_energy)
+        min_index = band_energy.index(min_band_energy)
+        # 最小値の角度を取得する
+        min_angle = angles[min_index]
+        if self.debug:
+            print(f"\n"
+                  f"\t\t{Color.GREEN}min_angle: {min_angle}{Color.RESET}")
+            print(f"\t\t{Color.GREEN}min_band_figure: {min_p1_p2_band_energy}{Color.RESET}\n")
+
+        B3_HOMO_Min_MCol, B3_HOMO_Min_MTrv, B3_LUMO_Min_MCol, B3_LUMO_Min_MTrv = 0, 0, 0, 0
+        for i in range(len(Raw_Title)):
+            parts = Raw_Title[i].split("/")[2].split("-")
+            count = 0
+            for part in parts:
+                if part in ["B12", "B3"]:
+                    structure = [part, count]
+                count = count + 1
+            Raw_Title[i].split("/")[2].split("-")[structure[1] + 1].replace("d", "")
+            if structure[0] == "B3":
+                Now_Angle = int(Raw_Title[i].split("/")[2].split("-")[structure[1] + 1].replace("d", ""))
+                if self.debug:
+                    print(f"\t\tNow_Angle: {Now_Angle}\tmin_angle: {min_angle}\t{Now_Angle == int(float(min_angle))}")
+                if Now_Angle == int(float(min_angle)):
+                    if self.debug:
+                        print(f"\t\t{Raw_Title[i].split("/")[2].split("-")[3].split(".")[0]}")
+                    if Raw_Title[i].split("/")[2].split("-")[structure[1] + 2].split(".")[0] == "HOMO":
+                        B3_HOMO_Min_MCol = MCol[i]
+                        B3_HOMO_Min_MTrv = MTrv[i]
+                        if self.debug:
+                            print(f"\t\tMCol: {B3_HOMO_Min_MCol}\t\tMTrv: {B3_HOMO_Min_MTrv}\t\t"
+                                  f"Mcol/Mtrv: {float(B3_HOMO_Min_MCol) / float(B3_HOMO_Min_MTrv)}\n")
+                    elif Raw_Title[i].split("/")[2].split("-")[structure[1] + 2].split(".")[0] == "LUMO":
+                        B3_LUMO_Min_MCol = MCol[i]
+                        B3_LUMO_Min_MTrv = MTrv[i]
+                        if self.debug:
+                            print(f"\t\tMCol: {B3_LUMO_Min_MCol}\t\tMTrv: {B3_LUMO_Min_MTrv}\t\t"
+                                  f"Mcol/Mtrv: {float(B3_LUMO_Min_MCol) / float(B3_LUMO_Min_MTrv)}\n")
+
+        # 最安定構造におけるバンド図の画像をスライドに追加する
+        self.mkStableBandFigures(3, min_angle, float(min_band_energy) * 2,
+                                 B3_HOMO_Min_MCol, B3_HOMO_Min_MTrv, B3_LUMO_Min_MCol, B3_LUMO_Min_MTrv)
+
+        print(f"\t>>> {Color.GREEN}Complete!{Color.RESET}")
+        return None
+
+    def mkStableBandFigures(self, position, Angle, min_band_energy,
+                            HOMO_MCol, HOMO_MTrv, LUMO_MCol, LUMO_MTrv):
+        """
+        最安定構造におけるバンド図の画像をスライドに追加する。
+        :param position: 1,2,3のいずれか
+        :param Angle: 角度
+        :param min_band_energy: 最小のエネルギー
+        :param LUMO_MTrv:
+
+        :param LUMO_MCol:
+        :param HOMO_MTrv:
+        :param HOMO_MCol:
+        :return: なし
+        """
+        if self.debug:
+            print(f"\n\t\t>>> Making Stable Band Figures...")
+
+        # 新しいページを作成
+        slide = self.add_slide()
+
+        self.add_title(slide)
+
+        # もしpositionが1,2ならB12構造、それ以外ならB3構造
+        if position == 1 or position == 2:
+            Structure = "B12"
+        else:
+            Structure = "B3"
+        H_File_Name = (f"Figures/BandStructures/{self.MaterName}_{self.Tilt_Angle}"
+                       f"-{Structure}-{int(float(Angle))}d-H-2.png")
+        # H_File_Nameが存在するかを確認
+        try:
+            with open(H_File_Name):
+                pass
+        except FileNotFoundError:
+            print(f"{H_File_Name} is not found.")
+            return
+        L_File_Name = (f"Figures/BandStructures/{self.MaterName}_{self.Tilt_Angle}"
+                       f"-{Structure}-{int(float(Angle))}d-L-2.png")
+        # L_File_Nameが存在するかを確認
+        try:
+            with open(L_File_Name):
+                pass
+        except FileNotFoundError:
+            print(f"{L_File_Name} is not found.")
+            return
+        if self.debug:
+            print(f"\t\t>>> HOMO Picture File Name: {H_File_Name}")
+            print(f"\t\t>>> LUMO Picture File Name: {L_File_Name}")
+
+        # 画像のサイズを取得
+        aspect_ratio_H = self.get_aspect(H_File_Name)
+        aspect_ratio_L = self.get_aspect(L_File_Name)
+        # スライドと画像のアスペクト比に応じて処理を分岐
+        # 画像のほうが横長だったら横めいっぱいに広げる
+        if aspect_ratio_H > Constants.SLIDE_ASPECT_RATIO:
+            img_display_width_H = Constants.SLIDE_WIDTH / 2
+            img_display_height_H = img_display_width_H / aspect_ratio_H
+        else:  # 画像のほうが縦長だったら縦めいっぱいに広げる
+            img_display_height_H = Constants.SLIDE_HEIGHT / 2
+            img_display_width_H = img_display_height_H * aspect_ratio_H
+        if aspect_ratio_L > Constants.SLIDE_ASPECT_RATIO:
+            img_display_width_L = Constants.SLIDE_WIDTH / 2
+            img_display_height_L = img_display_width_L / aspect_ratio_L
+        else:  # 画像のほうが縦長だったら縦めいっぱいに広げる
+            img_display_height_L = Constants.SLIDE_HEIGHT / 2
+            img_display_width_L = img_display_height_L * aspect_ratio_L
+
+        # センタリングする場合の画像の左上座標を計算
+        left_H = Constants.IMG_CENTER_X - img_display_width_H
+        top_H = Constants.IMG_CENTER_Y - img_display_height_H / 2 + Constants.SLIDE_HEIGHT / 18
+        left_L = Constants.IMG_CENTER_X
+        top_L = Constants.IMG_CENTER_Y - img_display_height_L / 2 + Constants.SLIDE_HEIGHT / 18
+
+        # 画像をスライドに追加
+        slide.shapes.add_picture(H_File_Name, left_H, top_H, width=img_display_width_H)
+        slide.shapes.add_picture(L_File_Name, left_L, top_L, width=img_display_width_L)
+
+        # タイトルを追加
+        shapes = slide.shapes
+        shape = shapes.add_textbox(0, Constants.SLIDE_HEIGHT / 30, Constants.SLIDE_WIDTH, Constants.SLIDE_HEIGHT / 10)
+        text_frame = shape.text_frame
+        # 初期状態の空のパラグラフを使用してテキストを設定
+        text_frame.clear()  # 空のパラグラフをクリア
+        pg = text_frame.paragraphs[0]  # デフォルトのパラグラフを取得
+        pg.font.size = Pt(36)
+        pg.alignment = PP_ALIGN.CENTER
+        pg.text = f"エネルギーが最小のバンド構造 - B{position}"
+        pg.font.name = "メイリオ"
+
+        # タイトルの下に角度、エネルギー、MCol、MTrvを追加
+        shape = shapes.add_textbox(Constants.SLIDE_WIDTH * 0.025, Constants.SLIDE_HEIGHT / 8,
+                                   Constants.SLIDE_WIDTH * 0.95, Constants.SLIDE_HEIGHT / 8)
+        text_frame = shape.text_frame
+        text_frame.clear()
+        pg = text_frame.paragraphs[0]
+        pg.font.size = Pt(14)
+        pg.font.name = "メイリオ"
+        pg.text = (f"Angle: {Angle}\n"
+                   f"Energy: {min_band_energy}\n"
+                   f"HOMO Mcol\t\tHOMO Mtrv\t\tMcol/Mtrv\n"
+                   f"{round(float(HOMO_MCol), 3)}\t\t{round(float(HOMO_MTrv), 3)}\t\t"
+                   f"{round(float(HOMO_MCol) / float(HOMO_MTrv), 3)}\n"
+                   f"LUMO Mcol\t\tLUMO Mtrv\t\tMcol/Mtrv\n"
+                   f"{round(float(LUMO_MCol), 3)}\t\t{round(float(LUMO_MTrv), 3)}\t\t"
+                   f"{round(float(LUMO_MCol) / float(LUMO_MTrv), 3)}")
+
+        # 画像の下にコメントを追加
+        shape = shapes.add_textbox(Constants.SLIDE_WIDTH * 0.1,
+                                   Constants.SLIDE_HEIGHT / 2 + img_display_height_H / 2 + Constants.SLIDE_HEIGHT / 18,
+                                   Constants.SLIDE_WIDTH * 0.8, Constants.SLIDE_HEIGHT / 8)
+        text_frame = shape.text_frame
+        text_frame.clear()
+        pg = text_frame.paragraphs[0]
+        pg.font.size = Pt(14)
+        pg.font.name = "メイリオ"
+        pg.text = "[Comment]"
+
+        return
+
 
 class Constants:
     # ハートリーからeVに変換するための定数
@@ -1406,6 +2202,15 @@ class Constants:
     n = 100
     # プロットパターン
     Pattern = "2"
+
+    # スライドサイズ
+    # 4:3 (default) 9144000x6858000
+    # 16:9 12193200x6858000
+    SLIDE_WIDTH, SLIDE_HEIGHT = 9144000, 6858000
+    # スライド中心のX、Y座標（左上が原点）
+    IMG_CENTER_X, IMG_CENTER_Y = SLIDE_WIDTH / 2, SLIDE_HEIGHT / 2
+    # スライドのアスペクト比
+    SLIDE_ASPECT_RATIO = SLIDE_WIDTH / SLIDE_HEIGHT
 
 
 class Color:
