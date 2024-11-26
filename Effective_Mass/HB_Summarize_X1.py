@@ -3,14 +3,18 @@
 import argparse
 import math
 import os
+import time
 
-import numpy as np
-from scipy.optimize import differential_evolution
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from matplotlib.animation import FuncAnimation
+from scipy.optimize import differential_evolution
+from tabulate import tabulate
 
 
 def main():
-    args = get_args()
+    args, before = get_args()
     EM = EffectiveMass(args)
 
     # Make band information files
@@ -32,6 +36,7 @@ def main():
     Pattern = Constants.Pattern
     FailFiles = []
     MassValues = []
+    plotPNGName = ""
     for Dat in DatList:
         print(f"\n>>> Creating band structure figures for {Color.GREEN}{Dat}{Color.RESET}...")
         Params, Fail = EM.getParameters(Dat)
@@ -42,10 +47,49 @@ def main():
                 EM.displayDef(Params)
             dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array, Mass, Masses = EM.calcEffMass(Params)
             MassValues.append(EM.mkEffectiveMassLine(Dat, Params, Masses))
-            EM.plotBandDisp(Params["Comment"], dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array, Masses, Pattern)
+            plotPNGName = EM.plotBandDisp(Params["Comment"], dev, Kcol, Ktrv, Energy_plus_array, Energy_minus_array,
+                                          Masses, Pattern)
+    print(f"\n>>> {Color.GREEN}The band structures were ploted for {len(MassValues)} energy bands.{Color.RESET}\n")
+
+    MassValues.sort()
+
+    MaterName_tNd = plotPNGName.split("-")[0]
+    MaterName_tNd = MaterName_tNd.split("_")
+    header = ("Entry\tAngle\tlattice in column direction\tlattice in transverse direction\t"
+              "Mcol from tensor\tMtrv from tensor\tMcol\tMtrv\tMcol/Mtrv")
+    with open(f"./{EM.MaterName}_{MaterName_tNd[1]}_EffMasses.txt", "w") as f:
+        f.write(f"*************** Effective Masses of {EM.MaterName} ***************\n")
+        f.write(header + "\n")
+        for MassValue in MassValues:
+            f.write(f"{MassValue.strip()}\n")
+        columns = header.strip().split('\t')
+        data = []
+        for MassValue in MassValues:
+            fields = MassValue.strip().split('\t')
+            data.append(fields)
+        df = pd.DataFrame(data, columns=columns)
+        numeric_cols = columns[1:]
+        for col in numeric_cols:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(df[col])
+        print(tabulate(df, headers='keys', tablefmt='pretty', showindex=False))
+
+    print(f"\n\t>>> {Color.GREEN}Effective Masses were evaluated for '{len(MassValues)}' energy bands.{Color.RESET}\n")
+
+    print("\n**********\nMaking summary plots...")
+    EM.Make_Summary_Plots(MaterName_tNd[1])
+
+    PPTX = SummarySlide(args)
+
+    after = time.time()
+    # End of the program
+    print(f"\n"
+          f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}"
+          f"************************* ALL PROCESSES END *************************"
+          f"{Color.RESET}\n")
 
 
 def get_args():
+    before = time.time()
     help_text = "This is a help text"
 
     parser = argparse.ArgumentParser(description=help_text, formatter_class=argparse.RawTextHelpFormatter)
@@ -55,7 +99,11 @@ def get_args():
                         help="Start in debug mode",
                         action='store_true')
     args = parser.parse_args()
-    return args
+
+    if args.debug:
+        print(f"{Color.RED}*************** Caution!!! Debug Started!!! ***************{Color.RESET}\n")
+
+    return args, before
 
 
 class EffectiveMass:
@@ -68,6 +116,10 @@ class EffectiveMass:
         self.p1Files, self.p2Files, self.p3Files, self.AllFiles, self.Angles, self.Tilt_Angle = self.File_Set_Check()
         os.makedirs("./BandInfo", exist_ok=True)
         os.makedirs("./Figures/BandStructures", exist_ok=True)
+        os.makedirs("./Figures/EvsAngle", exist_ok=True)
+        os.makedirs("./Figures/TIvsAngle", exist_ok=True)
+        os.makedirs("./Figures/AllData", exist_ok=True)
+        os.makedirs("./Figures/MassvsAngles", exist_ok=True)
 
     # Displays messages and exits if unexpected behavior is detected.
     def help_check_exit(self):
@@ -913,6 +965,427 @@ class EffectiveMass:
             for i in range(len(x)):
                 f.write(f"{x[i]}\t{y1[i]}\t{y2[i]}\n")
 
+        return plotPNGname
+
+    def List_files(self, Tilt_Angle):
+        ContentsList = os.listdir("./")
+        FolderList = []
+        for Content in ContentsList:
+            if os.path.isdir(Content) and self.MaterName in Content and "_results" in Content and "3mol" in Content:
+                FolderList.append(Content)
+            else:
+                pass
+
+        FileList = []
+        for Folder in FolderList:
+            ContentsList = os.listdir(f"./{Folder}")
+            for Content in ContentsList:
+                if os.path.isfile(f"./{Folder}/{Content}") and "_all.txt" in Content:
+                    FileList.append(f"./{Folder}/{Content}")
+                elif os.path.isfile(f"./{Folder}/{Content}"):
+                    if "_min-TIs-12.txt" in Content and "3mol" in Content:
+                        FileList.append(f"./{Folder}/{Content}")
+                    elif "_min-TIs-23.txt" in Content and "3mol" in Content:
+                        FileList.append(f"./{Folder}/{Content}")
+                    elif "_min-TIs-31.txt" in Content and "3mol" in Content:
+                        FileList.append(f"./{Folder}/{Content}")
+                    else:
+                        pass
+
+        if os.path.isfile(f"./{self.MaterName}_{Tilt_Angle}_EffMasses.txt"):
+            FileList.append(f"./{self.MaterName}_{Tilt_Angle}_EffMasses.txt")
+        else:
+            pass
+
+        return FileList
+
+    def Make_Summary_Plots(self, Tilt_Angle):
+        FileList = self.List_files(Tilt_Angle)
+        for File in FileList:
+            print(f"\t>>> Making plots from {File}: ", end="")
+            if "min-TIs" in File:
+                Data = self.getMinData(File)
+                self.plot_EvsAngle(Data)
+                self.plot_TIvsAngle(Data)
+            elif "_all.txt" in File:
+                with open(File, "r") as f:
+                    lines = f.readlines()
+                del lines[0:2]
+
+                Degs = []
+                for line in lines:
+                    contents = line.strip().split()
+                    if "***" in contents[0]:
+                        pass
+                    else:
+                        try:
+                            Degs.append(round(float(contents[1]), 1))
+                        except (ValueError, IndexError):
+                            pass
+                Degs = list(set(Degs))
+                Degs.sort()
+                for Deg in Degs:
+                    Data = self.getAllData(File, Deg)
+                    self.plot_AllData(Data)
+            elif "EffMasses" in File:
+                Structures = ["-B12-", "-B3-"]
+                HOMO_LUMOs = ["HOMO", "LUMO"]
+                for Structure in Structures:
+                    for HOMO_LUMO in HOMO_LUMOs:
+                        Data = self.getEffMassData(File, Structure, HOMO_LUMO)
+                        self.plot_EffMass(Data, Structure, HOMO_LUMO)
+                        if "B12" in Structure:
+                            minData1 = self.getMinData(f"./{self.MaterName}_3molp1_{Tilt_Angle}_results/"
+                                                       f"{self.MaterName}_3molp1_{Tilt_Angle}_min-TIs-12.txt")
+                            minData2 = self.getMinData(f"./{self.MaterName}_3molp2_{Tilt_Angle}_results/"
+                                                       f"{self.MaterName}_3molp2_{Tilt_Angle}_min-TIs-12.txt")
+                            minEnergy = np.array(minData1["Energy"]) + np.array(minData2["Energy"])
+                            minEnergy = list(minEnergy)
+                            minAngle = minData1["Angle"]
+                            self.plot_EMassvsAngle(Data, Structure, HOMO_LUMO, minAngle, minEnergy)
+                        elif "B3" in Structure:
+                            minData3 = self.getMinData(f"./{self.MaterName}_3molp3_{Tilt_Angle}_results/"
+                                                       f"{self.MaterName}_3molp3_{Tilt_Angle}_min-TIs-12.txt")
+                            minEnergy = np.array(minData3["Energy"]) * 2
+                            minEnergy = list(minEnergy)
+                            minAngle = minData3["Angle"]
+                            self.plot_EMassvsAngle(Data, Structure, HOMO_LUMO, minAngle, minEnergy)
+
+            print(f"{Color.GREEN}Complete!{Color.RESET}")
+
+    @staticmethod
+    def getMinData(FileName):
+        Angle, Dcol, Dtrv, Energy, TI_HOMO, TI_LUMO = [], [], [], [], [], []
+        Data = {}
+        name = FileName[FileName.rfind("/") + 1:FileName.rfind("_")]
+        if "-12.txt" in FileName:
+            name = f"{name}-12"
+        elif "-23.txt" in FileName:
+            name = f"{name}-23"
+        elif "-31.txt" in FileName:
+            name = f"{name}-31"
+        else:
+            pass
+
+        with open(FileName, "r") as f:
+            lines = f.readlines()
+            del lines[0:2]
+
+        for line in lines:
+            contents = line.strip().split()
+            try:
+                Angle.append(round(float(contents[1]), 1))
+                Dcol.append(round(float(contents[2]), 2))
+                Dtrv.append(round(float(contents[3]), 3))
+                Energy.append(round(float(contents[4]), 5))
+                TI_LUMO.append(round(float(contents[13]), 3))
+                TI_HOMO.append(round(float(contents[15]), 3))
+            except ValueError:
+                pass
+
+        Data["Angle"] = Angle
+        Data["Dcol"] = Dcol
+        Data["Dtrv"] = Dtrv
+        Data["Energy"] = Energy
+        Data["TI_HOMO"] = TI_HOMO
+        Data["TI_LUMO"] = TI_LUMO
+        Data["name"] = name
+        return Data
+
+    @staticmethod
+    def plot_EvsAngle(Data):
+        name = Data["name"]
+        Angle = Data["Angle"]
+        Dcol = Data["Dcol"]
+        Dtrv = Data["Dtrv"]
+        Energy = Data["Energy"]
+        title = f"{name}: Distance, Energy vs Angle"
+
+        fig = plt.figure(figsize=(6, 9))
+        ax1 = fig.add_subplot(111)
+        ax1.set_title(title, fontsize=16, loc="center", y=1.03)
+        ax1.set_xlabel("Angle (deg.)", fontsize=20)
+        ax1.set_ylabel("Distance (angstrom)", fontsize=20)
+        ax1.set_xlim(100, 0)
+        ax1.scatter(Angle, Dcol, label="Dcol", color="b", marker="^", s=100)
+        ax1.scatter(Angle, Dtrv, label="Dtrv", color="g", marker="v", s=100)
+
+        ax2 = ax1.twinx()
+        ax2.set_ylabel("Energy (a.u.)", fontsize=20)
+        ax2.scatter(Angle, Energy, label="Energy", color="r", marker="o", s=100)
+
+        ax1.tick_params(axis="both", direction="in", labelsize=18)
+        ax2.tick_params(axis="y", labelcolor="r", colors="r", direction="in", labelsize=18)
+        ax1.legend(loc="upper right", bbox_to_anchor=(1.2, 1.05))
+        ax2.legend(loc="upper right", bbox_to_anchor=(1.2, 1.1))
+
+        fig.savefig(f"./Figures/EvsAngle/{name}_EvsAngle.png", format="png", dpi=300, bbox_inches="tight")
+
+        plt.close()
+        return None
+
+    @staticmethod
+    def plot_TIvsAngle(Data):
+        name = Data["name"]
+        Angle = Data["Angle"]
+        TI_HOMO = Data["TI_HOMO"]
+        TI_LUMO = Data["TI_LUMO"]
+        title = f"{name}: Transfer integral vs Angle"
+        Color_homo = "r"
+        Color_lumo = "b"
+
+        plt.figure(figsize=(16, 9))
+        plt.scatter(Angle, TI_HOMO, c=Color_homo, marker="o", s=100, label="HOMO")
+        plt.scatter(Angle, TI_LUMO, c=Color_lumo, marker="s", s=100, label="LUMO")
+        plt.tick_params(axis="both", direction="in", labelsize=20)
+        plt.xlabel("Angle (deg.)", fontsize=24)
+        plt.ylabel("Transfer Integral (meV)", fontsize=24)
+        plt.axhline(0, 100, 0, c="k", linestyle="solid", linewidth=0.75)
+        plt.xlim(100, 0)
+        plt.title(title, fontsize=24, loc="center", y=1.03)
+        plt.legend(fontsize=20)
+        plt.savefig(f"./Figures/TIvsAngle/{name}_TIs.png", format="png", dpi=400)
+        plt.close()
+        return
+
+    @staticmethod
+    def getAllData(filename, Deg):
+        x = []
+        y = []
+        z = []
+        Data = {}
+        with open(filename, "r") as file:
+            lines = file.readlines()
+        del lines[0:2]
+
+        for line in lines:
+            contents = line.strip().split()
+            if "***" in contents[0]:
+                pass
+            elif round(float(contents[1]), 1) == round(float(Deg), 1):
+                x.append(round(float(contents[2]), 2))
+                y.append(round(float(contents[3]), 2))
+                z.append(round(float(contents[4]), 6))
+            else:
+                pass
+
+        Data["Dcol"] = x
+        Data["Dtrv"] = y
+        Data["Energy"] = z
+        Data["name"] = f"{filename[filename.rfind('/') + 1:filename.rfind('.txt')]}-{int(Deg)}"
+        return Data
+
+    @staticmethod
+    def plot_AllData(Data):
+        x = Data["Dcol"]
+        y = Data["Dtrv"]
+        z = Data["Energy"]
+        name = Data["name"]
+
+        fig = plt.figure(figsize=(6, 6))
+        ax = fig.add_subplot(111, projection="3d")
+        ax.set_title(name, size=20)
+        ax.set_xlabel(r"$D_{\mathrm{col}}$", fontsize=10)
+        ax.set_ylabel(r"$D_{\mathrm{trv}}$", fontsize=10)
+        ax.set_zlabel("Energy", fontsize=10)
+        ax.tick_params(axis="both", direction="in", labelsize=8)
+
+        # Initialize the plot
+        def init():
+            ax.scatter(x, y, z, c="r", marker="o")
+            return ax,
+
+        # Function to rotate the plot
+        def rotate(angle):
+            ax.view_init(azim=angle)
+            return ax,
+
+        # Create the animation
+        ani = FuncAnimation(
+            fig,
+            rotate,
+            frames=np.arange(0, 360, 5),
+            init_func=init,
+            interval=100,
+            blit=False
+        )
+
+        # Save the animation as a GIF file
+        ani.save(f"./Figures/AllData/{name}.gif", writer="pillow")
+        plt.close()
+
+    @staticmethod
+    def getEffMassData(filename, Structure, HorL):
+        with open(filename, "r") as file:
+            lines = file.readlines()
+        del lines[0:2]
+
+        Data = {}
+        Angle = []
+        Angle2 = []
+        Mcol = []
+        Mcol2 = []
+        Mtrv = []
+        Mtrv2 = []
+        ratio = []
+        rAngle = []
+        name = filename[filename.rfind("/") + 1:filename.rfind("_")]
+        for line in lines:
+            contents = line.strip().split()
+            if Structure in contents[0] and HorL in contents[0]:
+                if contents[6] == "-" and contents[7] == "-":
+                    Angle.append(round(float(contents[1]), 1))
+                    Mcol.append(round(float(contents[4]), 3))
+                    Mtrv.append(round(float(contents[5]), 3))
+                    rAngle.append(round(float(contents[1]), 1))
+                    ratio.append(round(float(contents[8]), 7))
+                elif contents[4] == "-" and contents[5] == "-":
+                    Angle2.append(round(float(contents[1]), 1))
+                    Mcol2.append(round(float(contents[6]), 3))
+                    Mtrv2.append(round(float(contents[7]), 3))
+                    rAngle.append(round(float(contents[1]), 1))
+                    ratio.append(round(float(contents[8]), 7))
+
+        Data["Angle"] = Angle
+        Data["Mcol"] = Mcol
+        Data["Mtrv"] = Mtrv
+        Data["ratio"] = ratio
+        Data["Angle2"] = Angle2
+        Data["Mcol2"] = Mcol2
+        Data["Mtrv2"] = Mtrv2
+        Data["rAngle"] = rAngle
+        Data["name"] = name
+
+        return Data
+
+    @staticmethod
+    def plot_EffMass(Data, Structure, HorL):
+        name = Data["name"]
+        Angle = Data["Angle"]
+        Mcol = Data["Mcol"]
+        Mtrv = Data["Mtrv"]
+        ratio = Data["ratio"]
+        Angle2 = Data["Angle2"]
+        Mcol2 = Data["Mcol2"]
+        Mtrv2 = Data["Mtrv2"]
+        rAngle = Data["rAngle"]
+        title = f"{name}{Structure}{HorL}: Effective Mass vs Angle"
+
+        fig = plt.figure(figsize=(16, 9))
+        ax1 = fig.add_subplot(111)
+        ax1.set_title(title, fontsize=16, loc="center", y=1.03)
+        ax1.set_xlabel("Angle (deg.)", fontsize=20)
+        ax1.set_ylabel(r"$m_{\mathrm{eff}} (m_{\mathrm{0}})$", fontsize=20)
+        ax1.set_xlim(100, 0)
+        if HorL == "HOMO":
+            ax1.set_ylim(-5, 0)
+        if HorL == "LUMO":
+            ax1.set_ylim(5, 0)
+        ax1.scatter(Angle, Mcol, label="Mcol", color="b", marker="^", s=100)
+        ax1.scatter(Angle, Mtrv, label="Mtrv", color="g", marker="v", s=100)
+        ax1.scatter(Angle2, Mcol2, label="Mcol (not tensor)", color="b", marker="s", s=20)
+        ax1.scatter(Angle2, Mtrv2, label="Mtrv (not tensor)", color="g", marker="s", s=20)
+
+        ax2 = ax1.twinx()
+        ax2.set_ylim(0, 2)
+        ax2.set_ylabel(r"$m_{\mathrm{col}}/m_{\mathrm{trv}}$", fontsize=20)
+        ax2.scatter(rAngle, ratio, label="ratio", color="r", marker="o", s=100)
+
+        ax1.tick_params(axis="both", direction="in", labelsize=18)
+        ax2.tick_params(axis="y", labelcolor="r", colors="r", direction="in", labelsize=18)
+        ax1.legend(loc="upper right", bbox_to_anchor=(1.2, 1.05))
+        ax2.legend(loc="upper right", bbox_to_anchor=(1.2, 1.1))
+
+        fig.savefig(f"./Figures/MassvsAngles/{name}{Structure}{HorL}_MassvsAngle.png",
+                    format="png", dpi=300, bbox_inches="tight")
+        plt.close()
+        return
+
+    @staticmethod
+    def plot_EMassvsAngle(Data, Structure, HorL, minAngle, minEnergy):
+        name = Data["name"]
+        Angle = Data["Angle"]
+        Mcol = Data["Mcol"]
+        Mtrv = Data["Mtrv"]
+        Angle2 = Data["Angle2"]
+        Mcol2 = Data["Mcol2"]
+        Mtrv2 = Data["Mtrv2"]
+        title = f"{name}{Structure}{HorL}: Effective Mass, Energy vs Angle"
+
+        fig = plt.figure(figsize=(16, 9))
+        ax1 = fig.add_subplot(111)
+        ax1.set_title(title, fontsize=16, loc="center", y=1.03)
+        ax1.set_xlabel("Angle (deg.)", fontsize=20)
+        ax1.set_ylabel(r"$m_{\mathrm{eff}} (m_{\mathrm{0}})$", fontsize=20)
+        ax1.set_xlim(100, 0)
+        if HorL == "HOMO":
+            ax1.set_ylim(-5, 0)
+        if HorL == "LUMO":
+            ax1.set_ylim(5, 0)
+        ax1.scatter(Angle, Mcol, label="Mcol", color="b", marker="^", s=100)
+        ax1.scatter(Angle, Mtrv, label="Mtrv", color="g", marker="v", s=100)
+        ax1.scatter(Angle2, Mcol2, label="Mcol (not tensor)", color="b", marker="s", s=20)
+        ax1.scatter(Angle2, Mtrv2, label="Mtrv (not tensor)", color="g", marker="s", s=20)
+
+        ax2 = ax1.twinx()
+        if Structure == "-B12-":
+            ax2.set_ylabel(r"$Energy, p1+p2 (a.u.)$", fontsize=20)
+        if Structure == "-B3-":
+            ax2.set_ylabel(r"$Energy, 2 x p3 (a.u.)$", fontsize=20)
+        ax2.scatter(minAngle, minEnergy, label="Energy", color="r", marker="o", s=100)
+
+        ax1.tick_params(axis="both", direction="in", labelsize=18)
+        ax2.tick_params(axis="y", labelcolor="r", colors="r", direction="in", labelsize=18)
+        ax1.legend(loc="upper right", bbox_to_anchor=(1.2, 1.05))
+        ax2.legend(loc="upper right", bbox_to_anchor=(1.2, 1.1))
+
+        fig.savefig(f"./Figures/{name}{Structure}{HorL}_EMvsAngle.png", format="png", dpi=300, bbox_inches="tight")
+        plt.close()
+        return
+
+
+class SummarySlide:
+    def __init__(self, args):
+        self.args = args
+        self.MaterName = args.MaterName
+        self.debug = args.debug
+        self.messages = []
+        self.HelpList = []
+
+    # Displays messages and exits if unexpected behavior is detected.
+    def help_check_exit(self):
+        """
+        Checks for unexpected behaviors and displays accumulated messages.
+
+        This function performs two main tasks:
+
+        1. It displays accumulated messages stored in `self.message`, allowing
+           for effective message management within the program.
+        2. It checks the `HelpList` attribute for any instances of `True`.
+           If `True` is found, indicating an unexpected behavior, the program
+           terminates after displaying an error message.
+
+        :returns: None
+        :raises SystemExit: Terminates the program if `True` is found in
+                            `HelpList`, signaling an abnormal end due to an
+                            unexpected behavior.
+        """
+        self.message_show()
+        if True in self.HelpList:
+            print(f"{Color.RED}{StandardPhrases.AbnormalEnd}{Color.RESET}")
+            exit()
+        else:
+            pass
+        return None
+
+    def message_show(self):
+        """
+        Show messages.
+        :return:
+        """
+        for message in self.messages:
+            print(message)
+        self.messages.clear()
         return None
 
 
