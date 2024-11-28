@@ -2171,24 +2171,24 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
         combineData(MaterName, Nmol, tcal_path, result_path, MinFileName, TIFileName,
                     PCFileName, Formated_Tilt, mol_pos, messages, HelpList)
     else:
-        copy_file(MinFileName, f"{result_path}/{MinFileName}", Lacks)
+        copy_file(MinFileName, f"{result_path}/{MinFileName}", Lacks, HelpList)
         print("\n")
 
     print("\tCopying Files required for recalculation...")
-    copy_file(AllFileName, f"{result_path}/{AllFileName}", Lacks)
+    copy_file(AllFileName, f"{result_path}/{AllFileName}", Lacks, HelpList)
 
-    copy_file(f"{MaterName}.xyz", f"{result_path}/{MaterName}.xyz", Lacks)
+    copy_file(f"{MaterName}.xyz", f"{result_path}/{MaterName}.xyz", Lacks, HelpList)
 
     condition_list = f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt"
-    copy_file(condition_list, f"{result_path}/{condition_list}", Lacks)
+    copy_file(condition_list, f"{result_path}/{condition_list}", Lacks, HelpList)
 
-    copy_file("CalcSetting_HB.txt", f"{result_path}/CalcSetting_HB.txt", Lacks)
+    copy_file("CalcSetting_HB.txt", f"{result_path}/CalcSetting_HB.txt", Lacks, HelpList)
 
     print("\n\tCopying min file...")
-    copy_file(f"{result_name}_min.txt", f"{result_path}/{result_name}_min.txt", Lacks)
+    copy_file(f"{result_name}_min.txt", f"{result_path}/{result_name}_min.txt", Lacks, HelpList)
 
     if "3mol" in Nmol:
-        copy_file(f"{result_name}_mins.hist", f"{result_path}/{result_name}_mins.hist", Lacks)
+        copy_file(f"{result_name}_mins.hist", f"{result_path}/{result_name}_mins.hist", Lacks, HelpList)
 
     if "2mol" in Nmol:
         struct_files = glob.glob(f"{tcal_path}/*.xyz")
@@ -2204,14 +2204,13 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
         print("\n\tCopying structural xyz files...")
         for file in struct_files:
             name = os.path.basename(file).replace(".all", "")
-            copy_file(file, f"{result_path}/{name}.xyz", Lacks)
+            copy_file(file, f"{result_path}/{name}.xyz", Lacks, HelpList)
         print(f"\t>>> {Color.GREEN}Structural Files were copied into the {result_path} folder.{Color.RESET}")
 
     if Lacks:
         messages.append(f"\nSeveral result files were not found in the specific folder:")
         for lack in Lacks:
             messages.append(f"\t>>> {lack}")
-        HelpList.append(True)
     else:
         messages.append(f"\n\t{Color.GREEN}All files were copied successfully!!{Color.RESET}")
 
@@ -2357,12 +2356,13 @@ def saveCombData(Name, path, List):
     return
 
 
-def copy_file(src, dest, lacks_list):
+def copy_file(src, dest, lacks_list, HelpList):
     if os.path.isfile(src):
         execute(["cp", src, dest], False)
         print(f"\t>>> {src} copy to {dest}: {Color.GREEN}Complete{Color.RESET}")
     else:
         lacks_list.append(src)
+        HelpList.append(True)
     return
 
 

@@ -364,7 +364,7 @@ class BrickWork:
         for line in lines[:6]:
             key = line.split(":")[0].strip().lower()
             if key in params:
-                params[key] = line.split(":")[1].strip()
+                params[key] = line.split(":")[1].strip().replace("[", "").replace("]", "")
         params["other axis"] = {
             ("x", "z"): "y",
             ("x", "y"): "z",
