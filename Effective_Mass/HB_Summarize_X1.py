@@ -17,8 +17,8 @@ from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Pt
-from scipy.optimize import differential_evolution
 from scipy.interpolate import griddata
+from scipy.optimize import differential_evolution
 from tabulate import tabulate
 
 print = functools.partial(print, flush=True)
@@ -75,7 +75,9 @@ def main():
 
     MassValues.sort()
 
-    MaterName_tNd = plotPNGName.split("-")[0]
+    parts = plotPNGName.split('-')
+    trimmed_parts = parts[:-3]
+    MaterName_tNd = '-'.join(trimmed_parts)
     MaterName_tNd = MaterName_tNd.split("_")
     header = ("Entry\tAngle\tlattice in column direction\tlattice in transverse direction\t"
               "Mcol from tensor\tMtrv from tensor\tMcol\tMtrv\tMcol/Mtrv")
@@ -95,7 +97,7 @@ def main():
             df[col] = pd.to_numeric(df[col], errors='coerce').fillna(df[col])
         print(tabulate(df, headers='keys', tablefmt='pretty', showindex=False))
 
-    print(f"\n\t>>> {Color.GREEN}Effective Masses were evaluated for '{len(MassValues)}' energy bands.{Color.RESET}\n")
+    print(f"\n\t>>> {Color.GREEN}Effective Masses were evaluated for '{len(MassValues)}' energy bands.{Color.RESET}")
 
     print("\n**********\nMaking summary plots...")
     EM.Make_Summary_Plots(MaterName_tNd[1])
@@ -868,7 +870,7 @@ class EffectiveMass:
         Direction_column = Params["Dcol"]
         Direction_transv = Params["Dtrv"]
         Comment = Params["Comment"]
-        Angle = Comment.split("-")[2].split("d")[0]
+        Angle = Comment.split("-")[-2].split("d")[0]
 
         if Mass_array[2] == "from tensor":
             line = (f"{Dat}\t{Angle}\t{Direction_column}\t{Direction_transv}\t"
@@ -1072,6 +1074,7 @@ class EffectiveMass:
 
     def Make_Summary_Plots(self, Tilt_Angle):
         FileList = self.List_files(Tilt_Angle)
+        FileList.sort()
         for File in FileList:
             print(f"\t>>> Making plots from {File}: ", end="")
             if "min-TIs" in File:
@@ -1251,9 +1254,6 @@ class EffectiveMass:
         y = np.array(Data["Dtrv"])
         z = np.array(Data["Energy"])
         name = Data["name"]
-        print("x: ", x)
-        print("y: ", y)
-        print("z: ", z)
 
         if self.gif:
             fig = plt.figure(figsize=(6, 6))
