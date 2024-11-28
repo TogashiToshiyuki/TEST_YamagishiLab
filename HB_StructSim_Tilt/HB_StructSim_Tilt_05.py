@@ -93,8 +93,7 @@ class Stereotyped:
                       "Tilt Angle: [Number]\n"
                       "\n"
                       "[Comment]\n")
-    InitialCondition_2mol_Temp = ("0 7.5\n"
-                                  "10 7.0\n"
+    InitialCondition_2mol_Temp = ("10 7.0\n"
                                   "20 6.3\n"
                                   "30 5.7\n"
                                   "40 5.0\n"
@@ -103,8 +102,7 @@ class Stereotyped:
                                   "70 3.9\n"
                                   "80 3.9\n"
                                   "90 3.9")
-    InitialCondition_3mol_Temp = ("0 3.9\n"
-                                  "10 3.9\n"
+    InitialCondition_3mol_Temp = ("10 3.9\n"
                                   "20 3.9\n"
                                   "30 4.2\n"
                                   "40 4.5\n"
