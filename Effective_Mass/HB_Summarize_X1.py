@@ -1013,7 +1013,7 @@ class EffectiveMass:
         plt.title(f"{Comment}: mc={round(Masses[0], 2)}m0, mt={round(Masses[1], 2)}m0 '{Masses[2]}'", fontsize=10)
         plt.tight_layout()
         if self.debug:
-            # plt.show()
+            plt.show()
             pass
         else:
             pass
@@ -2206,7 +2206,7 @@ class Constants:
     # スライドサイズ
     # 4:3 (default) 9144000x6858000
     # 16:9 12193200x6858000
-    SLIDE_WIDTH, SLIDE_HEIGHT = 12193200, 6858000
+    SLIDE_WIDTH, SLIDE_HEIGHT = 9144000, 6858000
     # スライド中心のX、Y座標（左上が原点）
     IMG_CENTER_X, IMG_CENTER_Y = SLIDE_WIDTH / 2, SLIDE_HEIGHT / 2
     # スライドのアスペクト比
