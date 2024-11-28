@@ -1908,7 +1908,7 @@ def process_file(F_path):
 
 def Calculate_TI(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
                  Formated_Tilt, Debug, messages, HelpList):
-    if calculation_tcal_flag:
+    if calculation_tcal_flag or "2mol" in Nmol:
         pass
     else:
         print(f"\n**********\n"

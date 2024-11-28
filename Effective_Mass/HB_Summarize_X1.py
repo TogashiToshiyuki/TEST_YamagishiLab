@@ -1301,7 +1301,7 @@ class EffectiveMass:
             plt.tick_params(axis="both", direction="in", labelsize=8)
 
             # 等高線プロット
-            contour = plt.contourf(xi, yi, zi, levels=100, cmap='viridis_r')
+            contour = plt.contourf(xi, yi, zi, levels=100, cmap='hot_r')
             plt.colorbar(contour, label='Energy')
 
             # 元のデータポイントをプロット（オプション）
