@@ -18,6 +18,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Pt
 from scipy.optimize import differential_evolution
+from scipy.interpolate import griddata
 from tabulate import tabulate
 
 print = functools.partial(print, flush=True)
@@ -1246,10 +1247,13 @@ class EffectiveMass:
         return Data
 
     def plot_AllData(self, Data):
-        x = Data["Dcol"]
-        y = Data["Dtrv"]
-        z = Data["Energy"]
+        x = np.array(Data["Dcol"])
+        y = np.array(Data["Dtrv"])
+        z = np.array(Data["Energy"])
         name = Data["name"]
+        print("x: ", x)
+        print("y: ", y)
+        print("z: ", z)
 
         if self.gif:
             fig = plt.figure(figsize=(6, 6))
@@ -1283,6 +1287,31 @@ class EffectiveMass:
             # Save the animation as a GIF file
             ani.save(f"./Figures/AllData/{name}.gif", writer="pillow")
         else:
+            # グリッドデータを作成
+            xi = np.linspace(x.min(), x.max(), 100)
+            yi = np.linspace(y.min(), y.max(), 100)
+            xi, yi = np.meshgrid(xi, yi)
+            zi = griddata((x, y), z, (xi, yi), method='linear')
+
+            # プロット作成
+            plt.figure(figsize=(6, 6))
+            plt.title(name, size=20)
+            plt.xlabel(r"$D_{\mathrm{col}}$", fontsize=10)
+            plt.ylabel(r"$D_{\mathrm{trv}}$", fontsize=10)
+            plt.tick_params(axis="both", direction="in", labelsize=8)
+
+            # 等高線プロット
+            contour = plt.contourf(xi, yi, zi, levels=100, cmap='viridis_r')
+            plt.colorbar(contour, label='Energy')
+
+            # 元のデータポイントをプロット（オプション）
+            plt.scatter(x, y, c='red', s=10, label='Data Points')
+            plt.legend()
+
+            # 画像を保存
+            plt.savefig(f"./Figures/AllData/{name}_2D.png", format="png", dpi=300, bbox_inches="tight")
+            plt.close()
+
             fig = plt.figure(figsize=(6, 6))
             ax = fig.add_subplot(111, projection="3d")
             ax.set_title(name, size=20)
