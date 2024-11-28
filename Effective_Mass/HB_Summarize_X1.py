@@ -11,11 +11,11 @@ import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from PIL import Image
 from matplotlib.animation import FuncAnimation
 from scipy.optimize import differential_evolution
 from tabulate import tabulate
 from pptx import Presentation
-from PIL import Image
 from pptx.util import Pt
 from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
@@ -2206,7 +2206,7 @@ class Constants:
     # スライドサイズ
     # 4:3 (default) 9144000x6858000
     # 16:9 12193200x6858000
-    SLIDE_WIDTH, SLIDE_HEIGHT = 9144000, 6858000
+    SLIDE_WIDTH, SLIDE_HEIGHT = 12193200, 6858000
     # スライド中心のX、Y座標（左上が原点）
     IMG_CENTER_X, IMG_CENTER_Y = SLIDE_WIDTH / 2, SLIDE_HEIGHT / 2
     # スライドのアスペクト比
