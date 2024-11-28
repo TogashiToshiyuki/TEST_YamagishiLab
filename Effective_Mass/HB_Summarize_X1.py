@@ -1,30 +1,31 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import argparse
+import datetime
+import functools
+import glob
 import math
 import os
 import time
-import functools
-import datetime
-import glob
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from matplotlib.animation import FuncAnimation
-from scipy.optimize import differential_evolution
-from tabulate import tabulate
-from pptx import Presentation
 from PIL import Image
-from pptx.util import Pt
+from matplotlib.animation import FuncAnimation
+from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
+from pptx.util import Pt
+from scipy.optimize import differential_evolution
+from tabulate import tabulate
 
 print = functools.partial(print, flush=True)
 
 
 def main():
     args, before = get_args()
+    print(StandardPhrases.ProgramAbst)
     EM = EffectiveMass(args)
 
     Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
@@ -101,7 +102,7 @@ def main():
     print("\n**********\nMaking summary slide...")
     PPTX = SummarySlide(args, Operator, MaterName_tNd[1])
     OUTPUT_FILE_PATH = f"{PPTX.MaterName}_{MaterName_tNd[1]}_summary.pptx"
-    print(f"\t>>> Output File: {OUTPUT_FILE_PATH}")
+    print(f"\t>>> Output File: {Color.GREEN}{OUTPUT_FILE_PATH}{Color.RESET}")
 
     PPTX.mkFrontCover()
 
@@ -140,22 +141,27 @@ def main():
     PPTX.prs.save(OUTPUT_FILE_PATH)
 
     after = time.time()
-    # End of the program
+    elapsed_time = after - before
+    minutes = int(elapsed_time // 60)
+    seconds = int(elapsed_time % 60)
     print(f"\n"
-          f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}"
+          f"Elapsed Time: {minutes} min {seconds} s\n{Color.GREEN}"
           f"************************* ALL PROCESSES END *************************"
           f"{Color.RESET}\n")
 
 
 def get_args():
     before = time.time()
-    help_text = "This is a help text"
+    help_text = StandardPhrases.ProgramAbst
 
     parser = argparse.ArgumentParser(description=help_text, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('MaterName',
                         help='Material name')
     parser.add_argument('--debug', '-d', '-D',
                         help="Start in debug mode",
+                        action='store_true')
+    parser.add_argument('--gif', '-g', '-G',
+                        help="Create GJF File from All File",
                         action='store_true')
     args = parser.parse_args()
 
@@ -170,6 +176,7 @@ class EffectiveMass:
         self.args = args
         self.MaterName = args.MaterName
         self.debug = args.debug
+        self.gif = args.gif
         self.messages = []
         self.HelpList = []
         self.p1Files, self.p2Files, self.p3Files, self.AllFiles, self.Angles, self.Tilt_Angle = self.File_Set_Check()
@@ -1238,43 +1245,55 @@ class EffectiveMass:
         Data["name"] = f"{filename[filename.rfind('/') + 1:filename.rfind('.txt')]}-{int(Deg)}"
         return Data
 
-    @staticmethod
-    def plot_AllData(Data):
+    def plot_AllData(self, Data):
         x = Data["Dcol"]
         y = Data["Dtrv"]
         z = Data["Energy"]
         name = Data["name"]
 
-        fig = plt.figure(figsize=(6, 6))
-        ax = fig.add_subplot(111, projection="3d")
-        ax.set_title(name, size=20)
-        ax.set_xlabel(r"$D_{\mathrm{col}}$", fontsize=10)
-        ax.set_ylabel(r"$D_{\mathrm{trv}}$", fontsize=10)
-        ax.set_zlabel("Energy", fontsize=10)
-        ax.tick_params(axis="both", direction="in", labelsize=8)
+        if self.gif:
+            fig = plt.figure(figsize=(6, 6))
+            ax = fig.add_subplot(111, projection="3d")
+            ax.set_title(name, size=20)
+            ax.set_xlabel(r"$D_{\mathrm{col}}$", fontsize=10)
+            ax.set_ylabel(r"$D_{\mathrm{trv}}$", fontsize=10)
+            ax.set_zlabel("Energy", fontsize=10)
+            ax.tick_params(axis="both", direction="in", labelsize=8)
 
-        # Initialize the plot
-        def init():
+            # Initialize the plot
+            def init():
+                ax.scatter(x, y, z, c="r", marker="o")
+                return ax,
+
+            # Function to rotate the plot
+            def rotate(angle):
+                ax.view_init(azim=angle)
+                return ax,
+
+            # Create the animation
+            ani = FuncAnimation(
+                fig,
+                rotate,
+                frames=np.arange(0, 360, 5),
+                init_func=init,
+                interval=100,
+                blit=False
+            )
+
+            # Save the animation as a GIF file
+            ani.save(f"./Figures/AllData/{name}.gif", writer="pillow")
+        else:
+            fig = plt.figure(figsize=(6, 6))
+            ax = fig.add_subplot(111, projection="3d")
+            ax.set_title(name, size=20)
+            ax.set_xlabel(r"$D_{\mathrm{col}}$", fontsize=10)
+            ax.set_ylabel(r"$D_{\mathrm{trv}}$", fontsize=10)
+            ax.set_zlabel("Energy", fontsize=10)
+            ax.tick_params(axis="both", direction="in", labelsize=8)
             ax.scatter(x, y, z, c="r", marker="o")
-            return ax,
+            fig.savefig(f"./Figures/AllData/{name}.png", format="png", dpi=300, bbox_inches="tight")
+            plt.close()
 
-        # Function to rotate the plot
-        def rotate(angle):
-            ax.view_init(azim=angle)
-            return ax,
-
-        # Create the animation
-        ani = FuncAnimation(
-            fig,
-            rotate,
-            frames=np.arange(0, 360, 5),
-            init_func=init,
-            interval=100,
-            blit=False
-        )
-
-        # Save the animation as a GIF file
-        ani.save(f"./Figures/AllData/{name}.gif", writer="pillow")
         plt.close()
 
     @staticmethod
@@ -2252,20 +2271,28 @@ class StandardPhrases:
         self._StandardPhrases = "StandardPhrases"
 
     ProgramAbst = ("\n"
-                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n"
-                   "*   To Search the energetically stable aggregation                      *\n"
-                   "*            for BrickWork (BW) aggregation                             *\n"
-                   "*                                                                       *\n"
-                   "*   The programme requires the following arguments.                     *\n"
-                   "*     - xyz file of the molecule from which the calculations are made.  *\n"
-                   "*                                                                       *\n"
-                   "*   The following files are also required.                              *\n"
-                   "*     - CalcSetting_BW.txt                                              *\n"
-                   "*                                                                       *\n"
-                   "*    Option                                                             *\n"
-                   "*      - Tilt angle can be added to the molecule                        *\n"
-                   "*                          created by Toshiyuki Togashi 2024/11/12      *\n"
-                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n")
+                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n"
+                   "*   This program collects and processes calculation results of                *\n"
+                   "*       optimized aggregate structures of organic semiconductors              *\n"
+                   "*       with HerringBone (HB) structures.                                     *\n"
+                   "*   It performs the following tasks:                                          *\n"
+                   "*       - Calculates effective masses                                         *\n"
+                   "*       - Plots band diagrams                                                 *\n"
+                   "*       -Generates summary slides of the results                              *\n"
+                   "*                                                                             *\n"
+                   "*   To run this program, please ensure the following files are available:     *\n"
+                   "*       - “MoleculeName”_3molp1_t”N”d_results                                 *\n"
+                   "*       - “MoleculeName”_3molp2_t”N”d_results                                 *\n"
+                   "*       - “MoleculeName”_3molp3_t”N”d_results                                 *\n"
+                   "*                                                                             *\n"
+                   "*   Replace “MoleculeName” with the actual name of your molecule,             *\n"
+                   "*       and “N” with the appropriate value used in your calculations.         *\n"
+                   "*                                                                             *\n"
+                   "*   When you start the program, you will be prompted to enter your name,      *\n"
+                   "*       - which will be used as the slide creator’s name.                     *\n"
+                   "*                                                                             *\n"
+                   "*                                 created by Toshiyuki Togashi 2024/11/27     *\n"
+                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n")
     AbnormalEnd = "\n************* Programme DID NOT terminate successfully. *************\n"
     HelpText = ("\n"
                 "The required file may not exist.\n"
