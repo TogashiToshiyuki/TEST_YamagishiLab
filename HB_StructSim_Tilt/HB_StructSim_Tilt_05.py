@@ -2157,7 +2157,7 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
     result_name = f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d"
     print(f"\n**********\n{Color.GREEN} Resulting Data Set for {result_name}...{Color.RESET}")
 
-    result_path = f"{result_name}_result"
+    result_path = f"{result_name}_results"
     os.makedirs(result_path, exist_ok=True)
 
     MinFileName = f"{result_name}_min.txt"
