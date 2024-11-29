@@ -2020,7 +2020,7 @@ class SummarySlide:
                     print(f"\t\tNow_Angle: {Now_Angle}\tmin_angle: {min_angle}\t{Now_Angle == int(float(min_angle))}")
                 if Now_Angle == int(float(min_angle)):
                     if self.debug:
-                        print(f"\t\t{Raw_Title[i].split("/")[2].split("-")[3].split(".")[0]}")
+                        print(f'\t\t{Raw_Title[i].split("/")[2].split("-")[3].split(".")[0]}')
                     if Raw_Title[i].split("/")[2].split("-")[structure[1] + 2].split(".")[0] == "HOMO":
                         B12_HOMO_Min_MCol = MCol[i]
                         B12_HOMO_Min_MTrv = MTrv[i]
