@@ -99,147 +99,6 @@ def main():
     return
 
 
-class StandardPhrases:
-    def __init__(self):
-        self._StandardPhrases = "StandardPhrases"
-
-    ProgramAbst = ("\n"
-                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n"
-                   "*   To Search the energetically stable aggregation                      *\n"
-                   "*            for BrickWork (BW) aggregation                             *\n"
-                   "*                                                                       *\n"
-                   "*   The programme requires the following arguments.                     *\n"
-                   "*     - xyz file of the molecule from which the calculations are made.  *\n"
-                   "*                                                                       *\n"
-                   "*   The following files are also required.                              *\n"
-                   "*     - CalcSetting_BW.txt                                              *\n"
-                   "*                                                                       *\n"
-                   "*    Option                                                             *\n"
-                   "*      - Tilt angle can be added to the molecule                        *\n"
-                   "*                          created by Toshiyuki Togashi 2024/11/12      *\n"
-                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n")
-    AbnormalEnd = "\n************* Programme DID NOT terminate successfully. *************\n"
-    HelpText = ("\n"
-                "The required file may not exist.\n"
-                "Please check.")
-    # memo: Headers and text for NITT WS, need to be adjusted if used elsewhere
-    Sh_txt = ("#!/bin/sh\n"
-              "\n"
-              "#$ -S /bin/sh\n"
-              "#$ -cwd\n"
-              "#$ -V\n"
-              "#$ -pe gau 12\n"
-              "#$ -q all.q\n"
-              "\n"
-              "module load gaussian/g16\n"
-              "export GAUSS_SCRDIR=/scr/$JOB_ID\n"
-              "mkdir /scr/$JOB_ID\n"
-              "\n"
-              "g16 xxx.gjf\n"
-              "rm -rf /scr/$JOB_ID\n"
-              "\n")
-    tcal_sh_txt = ("#!/bin/sh\n"
-                   "\n"
-                   "#$ -S /bin/sh\n"
-                   "#$ -cwd\n"
-                   "#$ -V\n"
-                   "#$ -pe gau 12\n"
-                   "#$ -q all.q\n"
-                   "\n"
-                   "tcal *.xyz\n"
-                   "\n"
-                   "g16 xxx.gjf\n"
-                   "rm -rf /scr/$JOB_ID\n"
-                   "\n")
-    Header_3mol = ("\n"
-                   "%mem=24GB\n"
-                   "%nprocshared=12\n"
-                   "%chk=test_3mol.chk\n"
-                   "#p pbepbe/6-31g(d) empiricaldispersion=gd3 counterpoise=3\n"
-                   "\n"
-                   "Title Card Required\n"
-                   "\n"
-                   "0 1\n")
-    CalcSet_BW_template = ("Edge Axis: [x, y, or z]\n"
-                           "Faceon Axis: [x, y, or z]\n"
-                           "Mol3 Other_Transition: A.AA\n"
-                           "Initial offset Edge: 2.6\n"
-                           "Initial offset Faceon: 3.8\n"
-                           "\n"
-                           "[Comment]\n")
-    InitialCondition_3mol_Temp = ("-3.0\n"
-                                  "-2.5\n"
-                                  "-2.0\n"
-                                  "-1.5\n"
-                                  "-1.0\n"
-                                  "-0.5\n"
-                                  "0\n"
-                                  "0.5\n"
-                                  "1.0\n"
-                                  "1.5\n"
-                                  "2.0\n"
-                                  "2.5\n"
-                                  "3.0")
-
-
-class Color:
-    """
-    ANSI escape code for color
-    """
-
-    def __init__(self):
-        self._Color = "Color"
-    BLACK = '\033[30m'  # black
-    RED = '\033[31m'  # red
-    GREEN = '\033[32m'  # green
-    YELLOW = '\033[33m'  # yellow
-    BLUE = '\033[34m'  # blue
-    MAGENTA = '\033[35m'  # magenta
-    CYAN = '\033[36m'  # cyan
-    LIME = '\033[92m'  # lime
-    WHITE = '\033[37m'  # white
-    COLOR_DEFAULT = '\033[39m'  # default
-    BOLD = '\033[1m'  # bold
-    UNDERLINE = '\033[4m'  # underline
-    INVISIBLE = '\033[08m'  # invisible
-    REVERSE = '\033[07m'  # reverse
-    BG_BLACK = '\033[40m'  # (background)black
-    BG_RED = '\033[41m'  # (background)red
-    BG_GREEN = '\033[42m'  # (background)green
-    BG_YELLOW = '\033[43m'  # (background)yellow
-    BG_BLUE = '\033[44m'  # (background)blue
-    BG_MAGENTA = '\033[45m'  # (background)magenta
-    BG_CYAN = '\033[46m'  # (background)cyan
-    BG_WHITE = '\033[47m'  # (background)white
-    BG_DEFAULT = '\033[49m'  # (background)default
-    RESET = '\033[0m'  # reset
-
-
-class Constant:
-    """
-    Constants used in the program
-    """
-
-    def __init__(self):
-        self._Constant = "Constant"
-    Cn = 1
-    d_another = 0
-    CycleCondition_n_02 = 1
-    CycleCondition_n_01 = 1
-    CycleCondition_n_005 = 1
-
-
-class CheckRequired(argparse.Action):
-    """
-    Check if the option is required.
-    """
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        if not getattr(namespace, 'chk', False):
-            parser.error(f"{option_string} requires --chk")
-        setattr(namespace, self.dest, values)
-
-
 def arg_parser():
     """
     Argument parser
@@ -1838,11 +1697,16 @@ class BrickWork:
             self.messages.append(f"\n\t{Color.GREEN}All files were copied successfully!!{Color.RESET}")
         self.help_check_exit()
 
-        after = time.time()
         if self.Debug:
             print("\n*************** Debug Finished!!! ***************")
+
+        after = time.time()
+        elapsed_time = after - before
+        formatted_time = time.strftime("%H h %M m %S s", time.gmtime(elapsed_time))
         print(f"\n"
-              f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}")
+              f"Elapsed Time: {formatted_time}\n{Color.GREEN}"
+              f"************************* ALL PROCESSES END *************************"
+              f"{Color.RESET}\n")
         return None
 
     def copy_file(self, src, dest, lacks_list):
@@ -1979,6 +1843,147 @@ class BrickWork:
                     File.write(line)
                     print(line.strip())
         return
+
+
+class StandardPhrases:
+    def __init__(self):
+        self._StandardPhrases = "StandardPhrases"
+
+    ProgramAbst = ("\n"
+                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n"
+                   "*   To Search the energetically stable aggregation                      *\n"
+                   "*            for BrickWork (BW) aggregation                             *\n"
+                   "*                                                                       *\n"
+                   "*   The programme requires the following arguments.                     *\n"
+                   "*     - xyz file of the molecule from which the calculations are made.  *\n"
+                   "*                                                                       *\n"
+                   "*   The following files are also required.                              *\n"
+                   "*     - CalcSetting_BW.txt                                              *\n"
+                   "*                                                                       *\n"
+                   "*    Option                                                             *\n"
+                   "*      - Tilt angle can be added to the molecule                        *\n"
+                   "*                          created by Toshiyuki Togashi 2024/11/12      *\n"
+                   "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n")
+    AbnormalEnd = "\n************* Programme DID NOT terminate successfully. *************\n"
+    HelpText = ("\n"
+                "The required file may not exist.\n"
+                "Please check.")
+    # memo: Headers and text for NITT WS, need to be adjusted if used elsewhere
+    Sh_txt = ("#!/bin/sh\n"
+              "\n"
+              "#$ -S /bin/sh\n"
+              "#$ -cwd\n"
+              "#$ -V\n"
+              "#$ -pe gau 12\n"
+              "#$ -q all.q\n"
+              "\n"
+              "module load gaussian/g16\n"
+              "export GAUSS_SCRDIR=/scr/$JOB_ID\n"
+              "mkdir /scr/$JOB_ID\n"
+              "\n"
+              "g16 xxx.gjf\n"
+              "rm -rf /scr/$JOB_ID\n"
+              "\n")
+    tcal_sh_txt = ("#!/bin/sh\n"
+                   "\n"
+                   "#$ -S /bin/sh\n"
+                   "#$ -cwd\n"
+                   "#$ -V\n"
+                   "#$ -pe gau 12\n"
+                   "#$ -q all.q\n"
+                   "\n"
+                   "tcal *.xyz\n"
+                   "\n"
+                   "g16 xxx.gjf\n"
+                   "rm -rf /scr/$JOB_ID\n"
+                   "\n")
+    Header_3mol = ("\n"
+                   "%mem=24GB\n"
+                   "%nprocshared=12\n"
+                   "%chk=test_3mol.chk\n"
+                   "#p pbepbe/6-31g(d) empiricaldispersion=gd3 counterpoise=3\n"
+                   "\n"
+                   "Title Card Required\n"
+                   "\n"
+                   "0 1\n")
+    CalcSet_BW_template = ("Edge Axis: [x, y, or z]\n"
+                           "Faceon Axis: [x, y, or z]\n"
+                           "Mol3 Other_Transition: A.AA\n"
+                           "Initial offset Edge: 2.6\n"
+                           "Initial offset Faceon: 3.8\n"
+                           "\n"
+                           "[Comment]\n")
+    InitialCondition_3mol_Temp = ("-3.0\n"
+                                  "-2.5\n"
+                                  "-2.0\n"
+                                  "-1.5\n"
+                                  "-1.0\n"
+                                  "-0.5\n"
+                                  "0\n"
+                                  "0.5\n"
+                                  "1.0\n"
+                                  "1.5\n"
+                                  "2.0\n"
+                                  "2.5\n"
+                                  "3.0")
+
+
+class Color:
+    """
+    ANSI escape code for color
+    """
+
+    def __init__(self):
+        self._Color = "Color"
+    BLACK = '\033[30m'  # black
+    RED = '\033[31m'  # red
+    GREEN = '\033[32m'  # green
+    YELLOW = '\033[33m'  # yellow
+    BLUE = '\033[34m'  # blue
+    MAGENTA = '\033[35m'  # magenta
+    CYAN = '\033[36m'  # cyan
+    LIME = '\033[92m'  # lime
+    WHITE = '\033[37m'  # white
+    COLOR_DEFAULT = '\033[39m'  # default
+    BOLD = '\033[1m'  # bold
+    UNDERLINE = '\033[4m'  # underline
+    INVISIBLE = '\033[08m'  # invisible
+    REVERSE = '\033[07m'  # reverse
+    BG_BLACK = '\033[40m'  # (background)black
+    BG_RED = '\033[41m'  # (background)red
+    BG_GREEN = '\033[42m'  # (background)green
+    BG_YELLOW = '\033[43m'  # (background)yellow
+    BG_BLUE = '\033[44m'  # (background)blue
+    BG_MAGENTA = '\033[45m'  # (background)magenta
+    BG_CYAN = '\033[46m'  # (background)cyan
+    BG_WHITE = '\033[47m'  # (background)white
+    BG_DEFAULT = '\033[49m'  # (background)default
+    RESET = '\033[0m'  # reset
+
+
+class Constant:
+    """
+    Constants used in the program
+    """
+
+    def __init__(self):
+        self._Constant = "Constant"
+    Cn = 1
+    d_another = 0
+    CycleCondition_n_02 = 1
+    CycleCondition_n_01 = 1
+    CycleCondition_n_005 = 1
+
+
+class CheckRequired(argparse.Action):
+    """
+    Check if the option is required.
+    """
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        if not getattr(namespace, 'chk', False):
+            parser.error(f"{option_string} requires --chk")
+        setattr(namespace, self.dest, values)
 
 
 if __name__ == "__main__":
