@@ -99,6 +99,46 @@ def main():
     return
 
 
+def arg_parser():
+    """
+    Argument parser
+    :return: args, before
+    :rtype: argparse.Namespace, float
+    """
+    before = time.time()
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('MaterNameXYZ',
+                        help="Molecular_Name.xyz")
+    parser.add_argument('--debug', '-d', '-D',
+                        help="Start the programme in Debug mode.",
+                        action="store_true")
+    parser.add_argument('--tcal', '-t',
+                        help="Argument for not calculating tcal.",
+                        action="store_false")
+    parser.add_argument('--chk', '--Check', '-c',
+                        help="Check the structure.",
+                        action="store_true")
+    parser.add_argument('--xyz', '--XYZ',
+                        action=CheckRequired,
+                        nargs='?',
+                        const=True, default=False,
+                        help='Create .xyz files')
+
+    args = parser.parse_args()
+
+    if args.debug:
+        print(f"{Color.RED}*************** Caution!!! Debug Started!!! ***************{Color.RESET}")
+        print(f"In debug mode, the following files are not deleted\n"
+              f"\t - sh files\n"
+              f"\t - chk files\n"
+              f"\t - log files\n"
+              f"\t - gjf files\n")
+    else:
+        pass
+
+    return args, before
+
+
 class StandardPhrases:
     def __init__(self):
         self._StandardPhrases = "StandardPhrases"
@@ -238,46 +278,6 @@ class CheckRequired(argparse.Action):
         if not getattr(namespace, 'chk', False):
             parser.error(f"{option_string} requires --chk")
         setattr(namespace, self.dest, values)
-
-
-def arg_parser():
-    """
-    Argument parser
-    :return: args, before
-    :rtype: argparse.Namespace, float
-    """
-    before = time.time()
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('MaterNameXYZ',
-                        help="Molecular_Name.xyz")
-    parser.add_argument('--debug', '-d', '-D',
-                        help="Start the programme in Debug mode.",
-                        action="store_true")
-    parser.add_argument('--tcal', '-t',
-                        help="Argument for not calculating tcal.",
-                        action="store_false")
-    parser.add_argument('--chk', '--Check', '-c',
-                        help="Check the structure.",
-                        action="store_true")
-    parser.add_argument('--xyz', '--XYZ',
-                        action=CheckRequired,
-                        nargs='?',
-                        const=True, default=False,
-                        help='Create .xyz files')
-
-    args = parser.parse_args()
-
-    if args.debug:
-        print(f"{Color.RED}*************** Caution!!! Debug Started!!! ***************{Color.RESET}")
-        print(f"In debug mode, the following files are not deleted\n"
-              f"\t - sh files\n"
-              f"\t - chk files\n"
-              f"\t - log files\n"
-              f"\t - gjf files\n")
-    else:
-        pass
-
-    return args, before
 
 
 # Class for BW calculation
