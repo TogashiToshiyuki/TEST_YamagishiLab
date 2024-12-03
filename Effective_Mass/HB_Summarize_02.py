@@ -27,17 +27,16 @@ print = functools.partial(print, flush=True)
 def main():
     args, before = get_args()
     print(StandardPhrases.ProgramAbst)
-    EM = EffectiveMass(args)
-
     Operator = input(f"\n{Color.GREEN}Retrieve the operator name.{Color.RESET}\n"
                      f"\t>>> The information entered here will be used as "
-                     f"{Color.GREEN}{Color.UNDERLINE}the name of the slide creator{Color.RESET}.\n"
+                     f"{Color.GREEN}{Color.UNDERLINE}The Name of the Slide Creator{Color.RESET}.\n"
                      f"\tPlease enter your Name.\n"
                      f"\t{Color.GREEN}>>> {Color.RESET}")
     if Operator == "":
         Operator = "ONE"
     else:
         pass
+    EM = EffectiveMass(args)
 
     # Make band information files
     print("\n**********\nMaking band information files...")
@@ -2307,7 +2306,7 @@ class StandardPhrases:
                    "*   It performs the following tasks:                                          *\n"
                    "*       - Calculates effective masses                                         *\n"
                    "*       - Plots band diagrams                                                 *\n"
-                   "*       -Generates summary slides of the results                              *\n"
+                   "*       - Generates summary slides of the results                             *\n"
                    "*                                                                             *\n"
                    "*   To run this program, please ensure the following files are available:     *\n"
                    "*       - “MoleculeName”_3molp1_t”N”d_results                                 *\n"

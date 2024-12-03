@@ -1338,7 +1338,7 @@ class BrickWork:
                 command = ["rename", "com", "gjf",
                            f"{self.dirpath}/{self.MaterName}_3mol{self.mol_pos}_{Condition}.com"]
                 self.execute(command, False)
-            print(f"\t>>> {Color.GREEN}Completed!!{Color.RESET}")
+            print(f"\t>>> {Color.GREEN}Complete!!{Color.RESET}")
             self.mkXYZFiles()
             print(f"\n**********\n"
                   f"{Color.GREEN}Calculating transfer integrals...\n{Color.RESET}")
@@ -1362,8 +1362,21 @@ class BrickWork:
                 else:
                     self.rmWildCards(f"{self.tcalpath}/*.sh*")
 
-                subprocess.run(["rename", "tcal", f"{self.MaterName}_3mol{self.mol_pos}_tcal", "tcal.log"],
-                               cwd=self.tcalpath)
+                print(f"\t>>> tcal.log -> {self.MaterName}_3mol{self.mol_pos}_tcal.log: ", end="")
+
+                result = subprocess.run(
+                    ["rename", "tcal", f"{self.MaterName}_3mol{self.mol_pos}_tcal", "tcal.log"],
+                    cwd=self.tcalpath,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True
+                )
+                if result.returncode == 0:
+                    print(f"{Color.GREEN}Completed!!{Color.RESET}")
+                else:
+                    print(f"{Color.RED}Failed!!{Color.RESET}")
+                    print(f"\t\tError Message: {result.stderr.strip()}")
+
                 self.readlog()
             else:
                 print(f"\t>>> tcal.log: {Color.GREEN}Already exists!!{Color.RESET}")
@@ -1561,7 +1574,9 @@ class BrickWork:
                 pass
             else:
                 self.rmWildCards(f"{self.tcalpath}/*.chk")
-                self.rmWildCards(f"{self.tcalpath}/*.log")
+                self.rmWildCards(f"{self.tcalpath}/*-12.log")
+                self.rmWildCards(f"{self.tcalpath}/*-23.log")
+                self.rmWildCards(f"{self.tcalpath}/*-31.log")
                 self.rmWildCards(f"{self.tcalpath}/*.gjf")
         return
 
@@ -1705,17 +1720,17 @@ class BrickWork:
         elapsed_time = after - before
         formatted_time = time.strftime("%H h %M m %S s", time.gmtime(elapsed_time))
         print(f"\n"
-              f"Elapsed Time: {formatted_time}\n{Color.GREEN}"
-              f"************************* ALL PROCESSES END *************************"
-              f"{Color.RESET}\n")
+              f"Elapsed Time: {formatted_time}\n{Color.GREEN}")
         return None
 
     def copy_file(self, src, dest, lacks_list):
+        print(f"\t>>> {src} -> {dest}: ", end="")
         if os.path.isfile(src):
             self.execute(["cp", src, dest], False)
-            print(f"\t>>> {src} -> {dest}: {Color.GREEN}Complete{Color.RESET}")
+            print(f"{Color.GREEN}Complete!!{Color.RESET}")
         else:
             lacks_list.append(src)
+            print(f"{Color.RED}Not Found{Color.RESET}")
         return
 
     def combineData(self, TIFileName, MinFileName, PCFileName, result_path):
