@@ -2,8 +2,10 @@
 *.txt
 *.log
 *.gjf
+*.chk
 *.com
 *.sh
+*.sh.*
 StructCheck*
 Pentacene_*mol*
 */G.sh
