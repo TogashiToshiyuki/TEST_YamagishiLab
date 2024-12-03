@@ -1361,6 +1361,7 @@ class BrickWork:
                     pass
                 else:
                     self.rmWildCards(f"{self.tcalpath}/*.sh*")
+
                 subprocess.run(["rename", "tcal", f"{self.MaterName}_3mol{self.mol_pos}_tcal", "tcal.log"],
                                cwd=self.tcalpath)
                 self.readlog()
