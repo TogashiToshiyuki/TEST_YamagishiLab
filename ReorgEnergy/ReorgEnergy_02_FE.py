@@ -1,11 +1,11 @@
 import argparse
 import datetime
 import functools
+import glob
 import os
 import subprocess
 import sys
 import time
-import glob
 
 print = functools.partial(print, flush=True)
 
@@ -46,7 +46,7 @@ def arg_parser():
     parser.add_argument('MaterName', help="Mater Name")
     parser.add_argument('--debug', '-d', '-D',
                         help="Debug mode",
-                        action='store_true')
+                        action='store_false')
     parser.add_argument('--function', '-f', '-F',
                         help="Change the basis function",
                         action='store_true')

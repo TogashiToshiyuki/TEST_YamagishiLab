@@ -188,14 +188,6 @@ class ReorgEnergy:
             header_data[7] = "0 1\n"
         elif Charge == "+1":
             header_data[7] = "1 2\n"
-        if self.debug:
-            print(f"\n************* {self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.gjf *************")
-            for formatted_line in header_data:
-                print(formatted_line)
-            for formatted_line in formatted_data:
-                print(formatted_line)
-            print(self.bond_info)
-            print("**************************************************************************\n")
         # GJFファイルへの書き込み
         with open(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.gjf", "w") as file:
             for formatted_line in header_data:
@@ -206,6 +198,12 @@ class ReorgEnergy:
             file.write(self.bond_info)
             file.write("\n")
             file.write("\n")
+        if self.debug:
+            print(f"\n************* {self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.gjf *************")
+            with open(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.gjf", "r") as file:
+                data = file.read()
+            print(data)
+            print("**************************************************************************\n")
         return f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.gjf"
 
     def run_gaussian(self, gjf):
