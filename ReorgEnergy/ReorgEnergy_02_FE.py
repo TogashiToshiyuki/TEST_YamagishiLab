@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 import time
+import glob
 
 print = functools.partial(print, flush=True)
 
@@ -27,6 +28,15 @@ def main():
 
     # Calculate
     re.calculate()
+
+    # Show log
+    re.show_log()
+
+    # program end
+    print(f"{Color.GREEN}"
+          f"************************* ALL PROCESSES END *************************"
+          f"{Color.RESET}\n")
+    return
 
 
 def arg_parser():
@@ -85,7 +95,6 @@ class ReorgEnergy:
         # Set the basis function
         print("\nSetting the basis function...")
         if self.function:
-            basis_function = ""
             while True:
                 print(f"\n"
                       f"{Color.BLUE}Selected basis function{Color.RESET}")
@@ -304,7 +313,7 @@ class ReorgEnergy:
         else:
             Debug_arg = ""
 
-        with open(f"G-Reorg-{self.Operator}-{self.MaterName}.sh", "w") as file:
+        with open(f"G-Reorg-{self.Operator}-{self.MaterName}-{self.basis_function[1]}.sh", "w") as file:
             file.write(f"#!/bin/sh\n")
             file.write(f"\n")
             file.write(f"#$ -S /bin/sh\n")
@@ -317,13 +326,40 @@ class ReorgEnergy:
             file.write(f"export GAUSS_SCRDIR=/scr/$JOB_ID\n")
             file.write(f"mkdir /scr/$JOB_ID\n")
             file.write(f"\n")
-            file.write(f"python3 ReorgEnergy_02_BG.py {self.MaterName} {self.basis_function[1]} {Debug_arg}\n")
+            file.write(f"BG_ReorgEnergy {self.MaterName} {self.basis_function[1]} {Debug_arg} "
+                       f"| tee Reorg-{self.Operator}-{self.MaterName}-{self.basis_function[1]}.log\n")
             file.write(f"rm -rf /scr/$JOB_ID| tee Reorg_{self.MaterName}.log\n")
             file.write(f"\n")
 
         # Execute the shell script
-        qsubList = [f"qsub G-Reorg-{self.Operator}-{self.MaterName}.sh"]
+        qsubList = [f"qsub G-Reorg-{self.Operator}-{self.MaterName}-{self.basis_function[1]}.sh"]
         self.job_submission(qsubList, "Reorg_BG", os.getcwd())
+
+        print(f"\n{Color.GREEN}All calculations are finished!!{Color.RESET}")
+        return None
+
+    def show_log(self):
+        print(f"\n{Color.GREEN}Log file is displayed.{Color.RESET}")
+        with open(f"{self.MaterName}_ReorgEnergy_{self.basis_function[1]}.txt", "r") as file:
+            print(file.read())
+
+        if not self.debug:
+            self.rmWildCards("*.chk")
+            self.rmWildCards("*.sh*")
+
+        return None
+
+    @staticmethod
+    def rmWildCards(wildcard):
+        """
+        Remove the wildcard
+        :param wildcard:
+        :return:
+        """
+        lines = glob.glob(wildcard)
+        for line in lines:
+            subprocess.run(["rm", line], timeout=10)
+        return
 
 
 class StandardPhrases:

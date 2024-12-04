@@ -32,7 +32,7 @@ def main():
 
     re.calc_from_gjf("EG", "0")
     re.calc_from_log("EG", "+1", f"{args.MaterName}_0_EG_{args.Function}.log")
-    re.calc_from_log("SP", "+0", f"{args.MaterName}_0_EG_{args.Function}.log")
+    re.calc_from_log("SP", "+0", f"{args.MaterName}_+1_EG_{args.Function}.log")
     re.calc_from_log("SP", "+1", f"{args.MaterName}_0_EG_{args.Function}.log")
 
     result_meV = re.calc_reorg_energy()
@@ -43,14 +43,15 @@ def main():
     elapsed_time = after - before
     formatted_time = time.strftime("%H h %M m %S s", time.gmtime(elapsed_time))
     print(f"")
-    print(f"Elapsed Time: {formatted_time}\n{Color.GREEN}")
+    print(f"Start Time: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Elapsed Time: {formatted_time}")
 
 
 def arg_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('MaterName')
     parser.add_argument('Function')
-    parser.add_argument('--debug',
+    parser.add_argument('--debug', '-d',
                         action='store_true')
     parser.add_argument('-g', '--g09')
     args = parser.parse_args()
@@ -71,6 +72,7 @@ class ReorgEnergy:
         else:
             self.gaussian_command = 'g16'
         self.EnergyList = []
+        self.Freq_0_EG, self.Freq_1_EG = [], []
 
     def get_band_info(self):
         print("\n結合情報を取得しています...")
@@ -96,7 +98,7 @@ class ReorgEnergy:
             if is_additional_input_section and line.strip():
                 bond_info.append(line.strip())
 
-        print("結合情報を取得しました。")
+        print("結合情報を取得しました。\n")
 
         return "\n".join(bond_info)
 
@@ -140,7 +142,8 @@ class ReorgEnergy:
 
         self.Check_normal_termination(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log", True)
         if EG_or_SP == "EG":
-            self.Check_negative_frequency(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log")
+            self.Check_negative_frequency(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log", Charge)
+        print("")
         return None
 
     def calc_from_log(self, EG_or_SP, Charge, Base_Log_File):
@@ -159,7 +162,8 @@ class ReorgEnergy:
 
         self.Check_normal_termination(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log", True)
         if EG_or_SP == "EG":
-            self.Check_negative_frequency(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log")
+            self.Check_negative_frequency(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log", Charge)
+        print("")
         return None
 
     def write_gjf_file(self, EG_or_SP, Charge, formatted_data):
@@ -235,7 +239,7 @@ class ReorgEnergy:
             exit()
         return None
 
-    def Check_negative_frequency(self, Log_File):
+    def Check_negative_frequency(self, Log_File, Charge):
         print("振動数が負の値を持っていないかを確認しています...")
         count, messages, HelpList = 0, [], []
         with open(Log_File, "r") as file:
@@ -248,8 +252,14 @@ class ReorgEnergy:
                     try:
                         element = float(element)
                         count = count + 1
+                        if Charge == "0":
+                            self.Freq_0_EG.append([count, element])
+                        elif Charge == "+1":
+                            self.Freq_1_EG.append([count, element])
+                        else:
+                            pass
                         if self.debug:
-                            print(f"\t>>> Frequency {count}: {element}")
+                            print(f"\t>>> 周波数 {count}: {element}")
                         if element < 0:
                             messages.append(
                                 f"\t{Color.RED}>>> Negative frequency found {count}: {element}{Color.RESET}")
@@ -258,11 +268,13 @@ class ReorgEnergy:
                         pass
         if True in HelpList:
             print(f"{Color.RED}負の振動数が見つかりました。{Color.RESET}")
+            sys.stderr.write(f"{Color.RED}負の周波数が見つかりました。{Color.RESET}\n")
             for message in messages:
                 print(message)
+                sys.stderr.write(f"{message}\n")
             print(f"{Color.RED}ログファイルを確認してください。{Color.RESET}")
             print(f"{Color.RED}プログラムを終了します。{Color.RESET}")
-            exit()
+            sys.exit(1)
         else:
             print("負の振動数は見つかりませんでした。")
         return None
@@ -346,14 +358,14 @@ class ReorgEnergy:
                          for header in headers}
         # ヘッダー行の表示
         header_row = " | ".join(f"{header:<{column_widths[header]}}" for header in headers)
-        print("\t" + "-" * len(header_row))
-        print("\t" + header_row)
-        print("\t" + "-" * len(header_row))
+        print("-" * len(header_row))
+        print(header_row)
+        print("-" * len(header_row))
         # データ行の表示
         for row in self.EnergyList:
-            print("\t" + " | ".join(f"{str(row[header]):<{column_widths[header]}}" for header in headers))
+            print(" | ".join(f"{str(row[header]):<{column_widths[header]}}" for header in headers))
         # 下線の表示
-        print("\t" + "-" * len(header_row) + "\n")
+        print("-" * len(header_row))
 
         # 式に従って計算
         result_Hartree = ((energy_0_SP - energy_0_EG) + (energy_1_SP - energy_1_EG))
@@ -364,17 +376,17 @@ class ReorgEnergy:
         # 結果の表示
         print("\n-- Reorganization Energy --")
 
-        print(f"λ1 (0_SP - 0_EG): {energy_0_SP - energy_0_EG}")
-        print(f"λ2 (1_SP - 1_EG): {energy_1_SP - energy_1_EG}")
-        print("再配置エネルギー[Hartree]:", result_Hartree, "[Hartree]")
-        print("再配置エネルギー[meV]:", result_meV, "[meV]")
+        print(f"λ1 (0_SP - 0_EG): {round(energy_0_SP - energy_0_EG, 8)}[Hartree]")
+        print(f"λ2 (1_SP - 1_EG): {round(energy_1_SP - energy_1_EG, 8)}[Hartree]")
+        print("再配置エネルギー[Hartree]:", round(result_Hartree, 8), "[Hartree]")
+        print("再配置エネルギー[meV]:", round(result_meV, 8), "[meV]")
 
         return result_meV
 
     def get_energy(self, Charge, EG_or_SP):
         with open(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log", "r") as file:
             data = file.read()
-        Temp = data.split("SCF Done")[1]
+        Temp = data.split("SCF Done")[-1]
         Temp = Temp.split("=")[1]
         Temp = Temp.split("A.U. after")[0].strip()
 
@@ -394,7 +406,7 @@ class ReorgEnergy:
         return meV
 
     def save_result(self, result_meV):
-        print("結果を保存しています...")
+        print("\n結果を保存しています...")
 
         energy_0_EG = float(
             next(
@@ -421,22 +433,28 @@ class ReorgEnergy:
             )
         )
 
+        min_freq_0_EG = min([freq[1] for freq in self.Freq_0_EG])
+        min_freq_1_EG = min([freq[1] for freq in self.Freq_1_EG])
+
         with open(f"{self.MaterName}_ReorgEnergy_{self.Function_Name}.txt", "w") as file:
             file.write(f"Execution date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
             file.write(f"Material Name: {self.MaterName}\n")
-            file.write(f"Function: {self.Function_Name}\n")
+            file.write(f"Function: {self.function}\n")
             file.write(f"\n")
-            file.write(f"Reorganization Energy: {result_meV} [meV]\n")
+            file.write(f"Reorganization Energy: {round(result_meV, 8)} [meV]\n")
 
-            file.write("=" * 40 + "\n")
+            file.write("\n" + "=" * 40 + "\n")
             file.write(f"{'Charge':<10}{'EG/SP':<10}{'Energy [Hartree]':<20}\n")
             file.write("=" * 40 + "\n")
             for item in self.EnergyList:
                 file.write(f"{item['Charge']:<10}{item['EG_or_SP']:<10}{item['Energy']:<20}\n")
             file.write("=" * 40 + "\n")
 
-            file.write(f"λ1 (0_SP - 0_EG): {energy_0_SP - energy_0_EG}")
-            file.write(f"λ2 (1_SP - 1_EG): {energy_1_SP - energy_1_EG}")
+            file.write(f"λ1 (0_SP - 0_EG): {round(energy_0_SP - energy_0_EG, 8)} [Hartree]\n")
+            file.write(f"λ2 (1_SP - 1_EG): {round(energy_1_SP - energy_1_EG, 8)} [Hartree]\n")
+            file.write(f"\n")
+            file.write(f"Minimum Frequency of 0_EG: {min_freq_0_EG}\n")
+            file.write(f"Minimum Frequency of 1_EG: {min_freq_1_EG}\n")
 
         print("結果を保存しました。")
         return None
