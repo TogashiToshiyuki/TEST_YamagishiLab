@@ -1718,9 +1718,11 @@ class BrickWork:
 
         after = time.time()
         elapsed_time = after - before
-        formatted_time = time.strftime("%H h %M m %S s", time.gmtime(elapsed_time))
-        print(f"\n"
-              f"Elapsed Time: {formatted_time}\n{Color.GREEN}")
+        hours = int(elapsed_time // 3600)
+        minutes = int((elapsed_time % 3600) // 60)
+        seconds = int(elapsed_time % 60)
+
+        print(f"\nElapsed Time: {hours} h {minutes} m {seconds} s\n{Color.GREEN}")
         return None
 
     def copy_file(self, src, dest, lacks_list):
