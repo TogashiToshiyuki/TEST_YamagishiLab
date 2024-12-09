@@ -1574,9 +1574,9 @@ class BrickWork:
                 pass
             else:
                 self.rmWildCards(f"{self.tcalpath}/*.chk")
-                self.rmWildCards(f"{self.tcalpath}/*-12.log")
-                self.rmWildCards(f"{self.tcalpath}/*-23.log")
-                self.rmWildCards(f"{self.tcalpath}/*-31.log")
+                self.rmWildCards(f"{self.tcalpath}/*-12_m*.log")
+                self.rmWildCards(f"{self.tcalpath}/*-23_m*.log")
+                self.rmWildCards(f"{self.tcalpath}/*-31_m*.log")
                 self.rmWildCards(f"{self.tcalpath}/*.gjf")
         return
 
