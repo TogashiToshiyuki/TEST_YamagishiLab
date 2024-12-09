@@ -1570,14 +1570,14 @@ class BrickWork:
                     LumoChk = self.ComparePhase(CalCore, "LUMO")
 
                     file.write(f"{CalCore}\t{LumoChk}\t{HomoChk}\n")
-            if self.Debug:
-                pass
-            else:
-                self.rmWildCards(f"{self.tcalpath}/*.chk")
-                self.rmWildCards(f"{self.tcalpath}/*-12_m*.log")
-                self.rmWildCards(f"{self.tcalpath}/*-23_m*.log")
-                self.rmWildCards(f"{self.tcalpath}/*-31_m*.log")
-                self.rmWildCards(f"{self.tcalpath}/*.gjf")
+        if self.Debug:
+            pass
+        else:
+            self.rmWildCards(f"{self.tcalpath}/*.chk")
+            self.rmWildCards(f"{self.tcalpath}/*-12_m*.log")
+            self.rmWildCards(f"{self.tcalpath}/*-23_m*.log")
+            self.rmWildCards(f"{self.tcalpath}/*-31_m*.log")
+            self.rmWildCards(f"{self.tcalpath}/*.gjf")
         return
 
     def mkCalCoreList(self, chkKEY):
