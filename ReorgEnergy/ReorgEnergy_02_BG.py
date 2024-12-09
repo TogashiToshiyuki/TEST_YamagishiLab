@@ -265,8 +265,8 @@ class ReorgEnergy:
                     except ValueError:
                         pass
         if True in HelpList:
-            print(f"{Color.RED}負の振動数が見つかりました。{Color.RESET}")
-            sys.stderr.write(f"{Color.RED}負の周波数が見つかりました。{Color.RESET}\n")
+            print(f"{Color.RED}EG, {Charge}価での計算結果にて負の振動数が見つかりました。{Color.RESET}")
+            sys.stderr.write(f"{Color.RED}EG, {Charge}価での計算結果にて負の振動数が見つかりました。{Color.RESET}\n")
             for message in messages:
                 print(message)
                 sys.stderr.write(f"{message}\n")

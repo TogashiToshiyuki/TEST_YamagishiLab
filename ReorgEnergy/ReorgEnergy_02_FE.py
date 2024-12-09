@@ -27,10 +27,10 @@ def main():
     re = ReorgEnergy(args, before)
 
     # Calculate
-    re.calculate()
+    MyJobID = re.calculate()
 
     # Show log
-    re.show_log()
+    re.show_log(MyJobID)
 
     # program end
     print(f"{Color.GREEN}"
@@ -175,6 +175,7 @@ class ReorgEnergy:
         :param dirpath:
         :return:
         """
+        MyJobIDList = []
         print("\n**********\nJobs are submitting...")
         if len(qsubList) == 0:
             self.messages.append(f"\t>>> Job was not submitted.\n"
@@ -185,7 +186,7 @@ class ReorgEnergy:
                 qsub = qsub.split()
                 subprocess.run(qsub, cwd=dirpath)
 
-            Wait_minutes = 2
+            Wait_minutes = 1
             MyJobIDList = self.My_JobIDList(qsubList)
             MyJobIDList.sort()
             RunningJobIDList = self.Running_JobIDList()
@@ -221,7 +222,7 @@ class ReorgEnergy:
             else:
                 print(f"{Color.GREEN}\n\n"
                       f"Calculation cycles for {which} until JobID {MyJobIDList[-1]} were finished.{Color.RESET}")
-        return
+        return MyJobIDList[-1]
 
     @staticmethod
     def My_JobIDList(qsubList):
@@ -333,20 +334,35 @@ class ReorgEnergy:
 
         # Execute the shell script
         qsubList = [f"qsub G-Reorg-{self.Operator}-{self.MaterName}-{self.basis_function[1]}.sh"]
-        self.job_submission(qsubList, "Reorg_BG", os.getcwd())
+        JobID = self.job_submission(qsubList, "Reorg_BG", os.getcwd())
 
         print(f"\n{Color.GREEN}All calculations are finished!!{Color.RESET}")
-        return None
+        return JobID
 
-    def show_log(self):
-        print(f"\n{Color.GREEN}Log file is displayed.{Color.RESET}")
+    def show_log(self, JobID):
+        print(f"\nChecking whether the calculations are finished successfully...")
+        if not os.path.getsize(f"G-Reorg-{self.Operator}-{self.MaterName}-{self.basis_function[1]}.sh.e{JobID}") == 0:
+            print(f"\t>>> {Color.RED}Calculations are not finished successfully.{Color.RESET}\n"
+                  f"\t>>> Please check the calculation conditions.\n")
+
+            print("********************************************************************************")
+            with open(f"G-Reorg-{self.Operator}-{self.MaterName}-{self.basis_function[1]}.sh.e{JobID}", "r") as file:
+                print(file.read())
+            print("********************************************************************************")
+            self.HelpList.append(True)
+            self.messages.append(f"\n\t>>> The calculation was not successful.\n"
+                                 f"\t>>> Please check the calculation conditions.")
+            self.help_check_exit()
+        else:
+            print(f"\t>>> {Color.GREEN}Calculations are finished successfully!!{Color.RESET}")
+
+        print(f"{Color.GREEN}Log file is displayed.{Color.RESET}")
         with open(f"{self.MaterName}_ReorgEnergy_{self.basis_function[1]}.txt", "r") as file:
             print(file.read())
 
         if not self.debug:
             self.rmWildCards("*.chk")
             self.rmWildCards("*.sh*")
-
         return None
 
     @staticmethod
