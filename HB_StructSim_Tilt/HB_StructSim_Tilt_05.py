@@ -2085,7 +2085,7 @@ def mkCalCoreList(tcal_path, chkKEY):
 
 def mkCubeFile(tcal_path, chkfile):
     def run_command(command, description):
-        subprocess.run(command, cwd=tcal_path, timeout=10)
+        subprocess.run(command, cwd=tcal_path, timeout=1000)
         print(f"\t{description}: {Color.GREEN}Completed!!{Color.RESET}")
 
     print(f"For {chkfile} ...")
