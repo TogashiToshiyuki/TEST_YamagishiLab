@@ -1665,7 +1665,6 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
                     if Contents[0] == "*":
                         SV = DataDcol
                 elif DataDeg == Deg and "3mol" in Nmol:
-                    print(f"Contents: {Contents}")
                     DataDcol = round(float(Contents[2]), 2)
                     DataDtrv = round(float(Contents[3]), 2)
 
@@ -1685,9 +1684,6 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
                 pass
             except IndexError:
                 pass
-
-        print(ValueList)
-        print(SV)
 
         if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
             Judges.append("complete")
