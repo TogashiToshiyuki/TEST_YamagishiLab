@@ -201,9 +201,15 @@ def main():
     Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList)
 
     after = time.time()
-    # End of the program
-    print(f"\n"
-          f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}"
+    elapsed_time = after - before
+    hours = int(elapsed_time // 3600)
+    minutes = int((elapsed_time % 3600) // 60)
+    seconds = int(elapsed_time % 60)
+
+    print(f"\nElapsed Time: {hours} h {minutes} m {seconds} s\n{Color.GREEN}")
+
+    # program end
+    print(f"{Color.GREEN}"
           f"************************* ALL PROCESSES END *************************"
           f"{Color.RESET}\n")
     return
