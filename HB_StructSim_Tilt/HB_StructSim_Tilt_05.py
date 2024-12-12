@@ -946,7 +946,7 @@ def getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Oper
         readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpList)
         if args.energy:
             exit()
-        judge = mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos)
+        judge = mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos, Debug)
     return
 
 
@@ -1489,6 +1489,8 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
     LogList.sort()
     for Log in LogList:
         FileName, deg, Vdcol, Vdtrv = getVAL_fromLogName(Nmol, Log, messages, HelpList)
+        # degをfloat化および丸め
+        deg = round(float(deg), 5)
         DegList.append(deg)
     DegList = list(set(DegList))
     DegList.sort()
@@ -1511,16 +1513,20 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                 AllData.write("******\t******\t******\t******\t******\t******\n")
                 for Log in LogList:
                     Condition = getCondition_fromName(Log)
-                    deg = Condition[:Condition.find("d-")]
-                    Vdeg = round(float(deg), 5)
+                    extracted_deg_str = Condition[:Condition.find("d-")]
+                    # Conditionから取得した角度を同様にfloatにして丸める
+                    Vdeg = round(float(extracted_deg_str), 5)
+
                     if Vdeg == Deg:
                         with open(Log, "r") as file:
                             data = file.read()
                         if "Normal termination" in data:
-                            FileName, Vdeg, Vdcol, Vdtrv = getVAL_fromLogName(Nmol, Log, messages, HelpList)
+                            FileName, Vdeg2, Vdcol, Vdtrv = getVAL_fromLogName(Nmol, Log, messages, HelpList)
+                            # getVAL_fromLogNameで取得したVdeg2も丸め
+                            Vdeg2 = round(float(Vdeg2), 5)
                             CPE, BSE = getEnergy(data)
                             CPE_Dict[FileName] = CPE
-                            VAL_Dict[FileName] = f"{Vdeg}\t{Vdcol}\t{Vdtrv}\t{CPE}\t{BSE}\n"
+                            VAL_Dict[FileName] = f"{Vdeg2}\t{Vdcol}\t{Vdtrv}\t{CPE}\t{BSE}\n"
                             Keys.append(FileName)
                         else:
                             print(f"{Color.RED}Error: {Log} did not finish normally.{Color.RESET}")
@@ -1539,20 +1545,22 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                             help_check_exit(messages, HelpList)
                             rmWildCards(LogFileName)
 
-                minkey = min(CPE_Dict, key=CPE_Dict.get)
-                MinimumL.append(minkey)
-                MinData.write(VAL_Dict.get(minkey))
-                Keys.sort()
-                for Key in Keys:
-                    if Key == minkey:
-                        sentence = f"*\t{VAL_Dict.get(Key)}"
+                # 全てのキーでエネルギーを比較し、最小のものを取得
+                if CPE_Dict:
+                    minkey = min(CPE_Dict, key=CPE_Dict.get)
+                    MinimumL.append(minkey)
+                    MinData.write(VAL_Dict.get(minkey))
+                    Keys.sort()
+                    for Key in Keys:
+                        if Key == minkey:
+                            sentence = f"*\t{VAL_Dict.get(Key)}"
+                        else:
+                            sentence = f"-\t{VAL_Dict.get(Key)}"
                         AllData.write(sentence)
                         print(sentence.strip())
-
-                    else:
-                        sentence = f"-\t{VAL_Dict.get(Key)}"
-                        AllData.write(sentence)
-                        print(sentence.strip())
+                else:
+                    # この角度で有効なログがない場合のハンドリング
+                    print(f"No valid data found for angle {Deg}")
     return
 
 
@@ -1608,7 +1616,7 @@ def getEnergy(data):
     return CPE, BSE
 
 
-def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos):
+def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos, Debug):
     with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_all.txt", "r") as All:
         AllLines = All.readlines()
 
@@ -1624,6 +1632,10 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
             pass
     DegList = list(set(DegList))
     DegList.sort()
+
+    if Debug:
+        print(f"\t>>> {len(DegList)} angles were found in the file.")
+        print(f"\t>>> {DegList}")
 
     Judges, ComplDeg, ComplVal, NewConditions = [], [], [], []
 
@@ -1647,6 +1659,7 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
                     if Contents[0] == "*":
                         SV = DataDcol
                 elif DataDeg == Deg and "3mol" in Nmol:
+                    print(f"Contents: {Contents}")
                     DataDcol = round(float(Contents[2]), 2)
                     DataDtrv = round(float(Contents[3]), 2)
 
@@ -1666,6 +1679,9 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
                 pass
             except IndexError:
                 pass
+
+        print(ValueList)
+        print(SV)
 
         if round(SV + 0.05, 2) in ValueList and round(SV - 0.05, 2) in ValueList:
             Judges.append("complete")
@@ -1693,6 +1709,8 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
             for i in range(Constant.Cn):
                 NewCondition = mkNewCondition(Nmol, Deg, SV + dev * (i + 1), which, RefValues)
                 NewConditions.append(NewCondition)
+        else:
+            exit()
     with open(f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt", "r") as f:
         orgCondition = f.readlines()
     NewList = orgCondition + NewConditions
