@@ -93,8 +93,7 @@ class Stereotyped:
                       "Tilt Angle: [Number]\n"
                       "\n"
                       "[Comment]\n")
-    InitialCondition_2mol_Temp = ("0 7.5\n"
-                                  "10 7.0\n"
+    InitialCondition_2mol_Temp = ("10 7.0\n"
                                   "20 6.3\n"
                                   "30 5.7\n"
                                   "40 5.0\n"
@@ -103,8 +102,7 @@ class Stereotyped:
                                   "70 3.9\n"
                                   "80 3.9\n"
                                   "90 3.9")
-    InitialCondition_3mol_Temp = ("0 3.9\n"
-                                  "10 3.9\n"
+    InitialCondition_3mol_Temp = ("10 3.9\n"
                                   "20 3.9\n"
                                   "30 4.2\n"
                                   "40 4.5\n"
@@ -203,9 +201,15 @@ def main():
     Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages, HelpList)
 
     after = time.time()
-    # End of the program
-    print(f"\n"
-          f"Elapsed Time: {(after - before):.0f} s\n{Color.GREEN}"
+    elapsed_time = after - before
+    hours = int(elapsed_time // 3600)
+    minutes = int((elapsed_time % 3600) // 60)
+    seconds = int(elapsed_time % 60)
+
+    print(f"\nElapsed Time: {hours} h {minutes} m {seconds} s\n{Color.GREEN}")
+
+    # program end
+    print(f"{Color.GREEN}"
           f"************************* ALL PROCESSES END *************************"
           f"{Color.RESET}\n")
     return
@@ -948,7 +952,7 @@ def getTemporaryStructure(MaterName, Nmol, mol_pos, Formated_Tilt, dirpath, Oper
         readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpList)
         if args.energy:
             exit()
-        judge = mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos)
+        judge = mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos, Debug)
     return
 
 
@@ -1491,6 +1495,8 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
     LogList.sort()
     for Log in LogList:
         FileName, deg, Vdcol, Vdtrv = getVAL_fromLogName(Nmol, Log, messages, HelpList)
+        # degをfloat化および丸め
+        deg = round(float(deg), 5)
         DegList.append(deg)
     DegList = list(set(DegList))
     DegList.sort()
@@ -1513,16 +1519,20 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                 AllData.write("******\t******\t******\t******\t******\t******\n")
                 for Log in LogList:
                     Condition = getCondition_fromName(Log)
-                    deg = Condition[:Condition.find("d-")]
-                    Vdeg = round(float(deg), 5)
+                    extracted_deg_str = Condition[:Condition.find("d-")]
+                    # Conditionから取得した角度を同様にfloatにして丸める
+                    Vdeg = round(float(extracted_deg_str), 5)
+
                     if Vdeg == Deg:
                         with open(Log, "r") as file:
                             data = file.read()
                         if "Normal termination" in data:
-                            FileName, Vdeg, Vdcol, Vdtrv = getVAL_fromLogName(Nmol, Log, messages, HelpList)
+                            FileName, Vdeg2, Vdcol, Vdtrv = getVAL_fromLogName(Nmol, Log, messages, HelpList)
+                            # getVAL_fromLogNameで取得したVdeg2も丸め
+                            Vdeg2 = round(float(Vdeg2), 5)
                             CPE, BSE = getEnergy(data)
                             CPE_Dict[FileName] = CPE
-                            VAL_Dict[FileName] = f"{Vdeg}\t{Vdcol}\t{Vdtrv}\t{CPE}\t{BSE}\n"
+                            VAL_Dict[FileName] = f"{Vdeg2}\t{Vdcol}\t{Vdtrv}\t{CPE}\t{BSE}\n"
                             Keys.append(FileName)
                         else:
                             print(f"{Color.RED}Error: {Log} did not finish normally.{Color.RESET}")
@@ -1541,20 +1551,22 @@ def readEnergy(dirpath, MaterName, Nmol, Formated_Tilt, mol_pos, messages, HelpL
                             help_check_exit(messages, HelpList)
                             rmWildCards(LogFileName)
 
-                minkey = min(CPE_Dict, key=CPE_Dict.get)
-                MinimumL.append(minkey)
-                MinData.write(VAL_Dict.get(minkey))
-                Keys.sort()
-                for Key in Keys:
-                    if Key == minkey:
-                        sentence = f"*\t{VAL_Dict.get(Key)}"
+                # 全てのキーでエネルギーを比較し、最小のものを取得
+                if CPE_Dict:
+                    minkey = min(CPE_Dict, key=CPE_Dict.get)
+                    MinimumL.append(minkey)
+                    MinData.write(VAL_Dict.get(minkey))
+                    Keys.sort()
+                    for Key in Keys:
+                        if Key == minkey:
+                            sentence = f"*\t{VAL_Dict.get(Key)}"
+                        else:
+                            sentence = f"-\t{VAL_Dict.get(Key)}"
                         AllData.write(sentence)
                         print(sentence.strip())
-
-                    else:
-                        sentence = f"-\t{VAL_Dict.get(Key)}"
-                        AllData.write(sentence)
-                        print(sentence.strip())
+                else:
+                    # この角度で有効なログがない場合のハンドリング
+                    print(f"No valid data found for angle {Deg}")
     return
 
 
@@ -1610,7 +1622,7 @@ def getEnergy(data):
     return CPE, BSE
 
 
-def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos):
+def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mol_pos, Debug):
     with open(f"./{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d_all.txt", "r") as All:
         AllLines = All.readlines()
 
@@ -1626,6 +1638,10 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
             pass
     DegList = list(set(DegList))
     DegList.sort()
+
+    if Debug:
+        print(f"\t>>> {len(DegList)} angles were found in the file.")
+        print(f"\t>>> {DegList}")
 
     Judges, ComplDeg, ComplVal, NewConditions = [], [], [], []
 
@@ -1695,6 +1711,8 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
             for i in range(Constant.Cn):
                 NewCondition = mkNewCondition(Nmol, Deg, SV + dev * (i + 1), which, RefValues)
                 NewConditions.append(NewCondition)
+        else:
+            exit()
     with open(f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt", "r") as f:
         orgCondition = f.readlines()
     NewList = orgCondition + NewConditions
@@ -1910,7 +1928,7 @@ def process_file(F_path):
 
 def Calculate_TI(calculation_tcal_flag, tcal_path, MaterName, Nmol, mol_pos,
                  Formated_Tilt, Debug, messages, HelpList):
-    if calculation_tcal_flag:
+    if calculation_tcal_flag or "2mol" in Nmol:
         pass
     else:
         print(f"\n**********\n"
@@ -2087,7 +2105,7 @@ def mkCalCoreList(tcal_path, chkKEY):
 
 def mkCubeFile(tcal_path, chkfile):
     def run_command(command, description):
-        subprocess.run(command, cwd=tcal_path, timeout=10)
+        subprocess.run(command, cwd=tcal_path, timeout=1000)
         print(f"\t{description}: {Color.GREEN}Completed!!{Color.RESET}")
 
     print(f"For {chkfile} ...")
@@ -2159,7 +2177,7 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
     result_name = f"{MaterName}_{Nmol}{mol_pos}_t{Formated_Tilt}d"
     print(f"\n**********\n{Color.GREEN} Resulting Data Set for {result_name}...{Color.RESET}")
 
-    result_path = f"{result_name}_result"
+    result_path = f"{result_name}_results"
     os.makedirs(result_path, exist_ok=True)
 
     MinFileName = f"{result_name}_min.txt"
@@ -2173,24 +2191,24 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
         combineData(MaterName, Nmol, tcal_path, result_path, MinFileName, TIFileName,
                     PCFileName, Formated_Tilt, mol_pos, messages, HelpList)
     else:
-        copy_file(MinFileName, f"{result_path}/{MinFileName}", Lacks)
+        copy_file(MinFileName, f"{result_path}/{MinFileName}", Lacks, HelpList)
         print("\n")
 
     print("\tCopying Files required for recalculation...")
-    copy_file(AllFileName, f"{result_path}/{AllFileName}", Lacks)
+    copy_file(AllFileName, f"{result_path}/{AllFileName}", Lacks, HelpList)
 
-    copy_file(f"{MaterName}.xyz", f"{result_path}/{MaterName}.xyz", Lacks)
+    copy_file(f"{MaterName}.xyz", f"{result_path}/{MaterName}.xyz", Lacks, HelpList)
 
     condition_list = f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt"
-    copy_file(condition_list, f"{result_path}/{condition_list}", Lacks)
+    copy_file(condition_list, f"{result_path}/{condition_list}", Lacks, HelpList)
 
-    copy_file("CalcSetting_HB.txt", f"{result_path}/CalcSetting_HB.txt", Lacks)
+    copy_file("CalcSetting_HB.txt", f"{result_path}/CalcSetting_HB.txt", Lacks, HelpList)
 
     print("\n\tCopying min file...")
-    copy_file(f"{result_name}_min.txt", f"{result_path}/{result_name}_min.txt", Lacks)
+    copy_file(f"{result_name}_min.txt", f"{result_path}/{result_name}_min.txt", Lacks, HelpList)
 
     if "3mol" in Nmol:
-        copy_file(f"{result_name}_mins.hist", f"{result_path}/{result_name}_mins.hist", Lacks)
+        copy_file(f"{result_name}_mins.hist", f"{result_path}/{result_name}_mins.hist", Lacks, HelpList)
 
     if "2mol" in Nmol:
         struct_files = glob.glob(f"{tcal_path}/*.xyz")
@@ -2206,14 +2224,13 @@ def Result_Data_set(MaterName, Nmol, Formated_Tilt, mol_pos, tcal_path, messages
         print("\n\tCopying structural xyz files...")
         for file in struct_files:
             name = os.path.basename(file).replace(".all", "")
-            copy_file(file, f"{result_path}/{name}.xyz", Lacks)
+            copy_file(file, f"{result_path}/{name}.xyz", Lacks, HelpList)
         print(f"\t>>> {Color.GREEN}Structural Files were copied into the {result_path} folder.{Color.RESET}")
 
     if Lacks:
         messages.append(f"\nSeveral result files were not found in the specific folder:")
         for lack in Lacks:
             messages.append(f"\t>>> {lack}")
-        HelpList.append(True)
     else:
         messages.append(f"\n\t{Color.GREEN}All files were copied successfully!!{Color.RESET}")
 
@@ -2359,12 +2376,13 @@ def saveCombData(Name, path, List):
     return
 
 
-def copy_file(src, dest, lacks_list):
+def copy_file(src, dest, lacks_list, HelpList):
     if os.path.isfile(src):
         execute(["cp", src, dest], False)
         print(f"\t>>> {src} copy to {dest}: {Color.GREEN}Complete{Color.RESET}")
     else:
         lacks_list.append(src)
+        HelpList.append(True)
     return
 
 
