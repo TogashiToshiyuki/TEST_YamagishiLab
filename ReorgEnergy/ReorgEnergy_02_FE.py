@@ -382,7 +382,6 @@ class StandardPhrases:
     def __init__(self):
         self._StandardPhrases = "StandardPhrases"
 
-    # プログラムの概要
     ProgramAbst = ("*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*\n"
                    "*   Programme for calculating relocation energy.            *\n"
                    "*                                                           *\n"

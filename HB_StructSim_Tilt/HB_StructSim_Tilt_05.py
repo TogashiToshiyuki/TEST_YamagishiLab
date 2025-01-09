@@ -1665,6 +1665,8 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
                     if Contents[0] == "*":
                         SV = DataDcol
                 elif DataDeg == Deg and "3mol" in Nmol:
+                    if Debug:
+                        print(AllLine.strip())
                     DataDcol = round(float(Contents[2]), 2)
                     DataDtrv = round(float(Contents[3]), 2)
 
@@ -1712,7 +1714,25 @@ def mkNewConditionLists(MaterName, Nmol, Formated_Tilt, which, dev, RefLines, mo
                 NewCondition = mkNewCondition(Nmol, Deg, SV + dev * (i + 1), which, RefValues)
                 NewConditions.append(NewCondition)
         else:
-            exit()
+            pass
+            """if dev == 0.2 or dev == 0.1:
+                print(f"SV: {SV}")
+                print(f"Deg: {Deg}")
+                print(f"ValueList: {ValueList}")
+                if round(SV + 0.1, 2) in ValueList and round(SV - 0.1, 2) in ValueList:
+                    Judges.append("complete")
+                    print(f"\nThe local minimum by 0.05 step for {Deg} degree was Found;\t{SV}.")
+                    print(f"{Color.GREEN}\tCOMPLETE!!{Color.RESET}")
+                    ComplDeg.append(Deg)
+                    ComplVal.append(SV)
+                else:
+                    print(f"{Color.RED}\nError: Unexpected error occurred in {Deg} degree.{Color.RESET}")
+                    print(f"{Color.RED}\tNOT COMPLETE(3)!!{Color.RESET}")
+                    help_check_exit(["calculation error. Please check the log files."], [True])
+            else:
+                print(f"{Color.RED}\nError: Unexpected error occurred in {Deg} degree.{Color.RESET}")
+                print(f"{Color.RED}\tNOT COMPLETE(4)!!{Color.RESET}")
+                help_check_exit(["calculation error. Please check the log files."], [True])"""
     with open(f"ConditionList_Tilt_{Nmol}{mol_pos}_t{Formated_Tilt}d.txt", "r") as f:
         orgCondition = f.readlines()
     NewList = orgCondition + NewConditions
