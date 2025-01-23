@@ -82,10 +82,6 @@ class EffectiveMass:
         self.dat_files = []
         os.makedirs("./BandInfo", exist_ok=True)
         os.makedirs("./Figures/BandStructures", exist_ok=True)
-        os.makedirs("./Figures/EvsAngle", exist_ok=True)
-        os.makedirs("./Figures/TIvsAngle", exist_ok=True)
-        os.makedirs("./Figures/AllData", exist_ok=True)
-        os.makedirs("./Figures/MassvsAngles", exist_ok=True)
 
     # Displays messages and exits if unexpected behavior is detected.
     def help_check_exit(self):
@@ -167,9 +163,9 @@ class EffectiveMass:
 
             print(f"\nCreating Dat File...")
             title = f"{material_name}-{structure}"
-            print(f"\t>>> {title}-HOMO.dat: ", end="")
-            with open(f"./BandInfo/{title}-HOMO.dat", "w") as Fhomo:
-                Fhomo.write(f"{title}-HOMO\n")
+            print(f"\t>>> {title}-{HOMO_LUMO}.dat: ", end="")
+            with open(f"./BandInfo/{title}-{HOMO_LUMO}.dat", "w") as Fhomo:
+                Fhomo.write(f"{title}-{HOMO_LUMO}\n")
                 Fhomo.write(f"{Constants.n}\n")
                 Fhomo.write(f"{Dcol}\n")
                 Fhomo.write(f"{Dtrv}\n")
@@ -180,7 +176,7 @@ class EffectiveMass:
                 Fhomo.write(f"{T34}\n")
                 Fhomo.write(f"{T35}\n")
                 Fhomo.write("\n")
-            DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
+            DatList_temp.append(f"./BandInfo/{title}-{HOMO_LUMO}.dat")
             print(f"{Color.GREEN}Complete!{Color.RESET}")
 
             # Datファイル作成を終了するかを確認する
