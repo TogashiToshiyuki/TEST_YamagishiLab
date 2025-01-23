@@ -157,8 +157,8 @@ class EffectiveMass:
                     HOMO_LUMO = "LUMO"
                     break
 
-            Dcol = self.get_float_input("the column distance (nm)", "Column distance")
-            Dtrv = self.get_float_input("the transverse distance (nm)", "Transverse distance")
+            Dcol = self.get_float_input("the column distance (Å)", "Column distance")
+            Dtrv = self.get_float_input("the transverse distance (Å)", "Transverse distance")
             T12 = self.get_float_input("T12", "T12")
             T13 = self.get_float_input("T13", "T13")
             T23 = self.get_float_input("T23", "T23")
