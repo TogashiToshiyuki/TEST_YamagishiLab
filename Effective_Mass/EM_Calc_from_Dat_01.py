@@ -181,10 +181,10 @@ class EffectiveMass:
                 Fhomo.write(f"{T35}\n")
                 Fhomo.write("\n")
             DatList_temp.append(f"./BandInfo/{title}-HOMO.dat")
-            print(f"{Color.GREEN}Complete!{Color.RED}")
+            print(f"{Color.GREEN}Complete!{Color.RESET}")
 
             # Datファイル作成を終了するかを確認する
-            Flag = input(f"\nFinish create new dat data? (y/n):")
+            Flag = input(f"\n{Color.RED}Finish create new dat data?{Color.RESET} (y/n):")
             if Flag == "y":
                 break
         return DatList_temp
