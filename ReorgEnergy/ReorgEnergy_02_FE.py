@@ -14,7 +14,8 @@ class Basefunctions:
     function = {
         1: ["b3lyp/6-31g(d)", "b3lyp_6-31Gd"],
         2: ["b3lyp/6-311+g(d,p)", "b3lyp_6-311+Gdp"],
-        3: ["exit", "none"],  # 終了
+        3: ["b3lyp/cc-pVTZ", "b3lyp_cc-pVTZ"],
+        4: ["exit", "none"],  # 終了
     }
 
 
@@ -70,7 +71,7 @@ class ReorgEnergy:
         self._ReorgEnergy = "ReorgEnergy"
         self.args = args
         self.before = before
-        self.MaterName = args.MaterName
+        self.MaterName = args.MaterName[:-4]
         self.debug = args.debug
         self.function = args.function
         self.messages, self.HelpList = [], []

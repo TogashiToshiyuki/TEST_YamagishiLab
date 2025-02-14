@@ -13,7 +13,8 @@ print = functools.partial(print, flush=True)
 class Basefunctions:
     function = {
         "b3lyp_6-31Gd": "b3lyp/6-31g(d)",
-        "b3lyp_6-311+Gdp": "b3lyp/6-311+g(d,p)"
+        "b3lyp_6-311+Gdp": "b3lyp/6-311+g(d,p)",
+        "b3lyp_cc-pVTZ": "b3lyp/cc-pvtz",
     }
 
 
