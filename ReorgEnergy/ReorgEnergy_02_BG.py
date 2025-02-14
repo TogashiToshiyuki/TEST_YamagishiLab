@@ -30,10 +30,13 @@ def main():
 
     re = ReorgEnergy(args)
 
-    re.calc_from_gjf("EG", "0")
-    re.calc_from_log("EG", "+1", f"{args.MaterName}_0_EG_{args.Function}.log")
-    re.calc_from_log("SP", "+0", f"{args.MaterName}_+1_EG_{args.Function}.log")
-    re.calc_from_log("SP", "+1", f"{args.MaterName}_0_EG_{args.Function}.log")
+    re.calc_from_gjf("EG", "0")  # 0荷、0価の構造
+    re.calc_from_log("EG", "+1", f"{args.MaterName}_0_EG_{args.Function}.log")  # +1荷、+1価の構造
+    re.calc_from_log("EG", "-1", f"{args.MaterName}_0_EG_{args.Function}.log")  # -1荷、-1価の構造
+    re.calc_from_log("SP", "+0", f"{args.MaterName}_+1_EG_{args.Function}.log")  # 0荷、+1価の構造
+    re.calc_from_log("SP", "-0", f"{args.MaterName}_-1_EG_{args.Function}.log")  # 0荷、-1価の構造
+    re.calc_from_log("SP", "+1", f"{args.MaterName}_0_EG_{args.Function}.log")  # +1荷、0価の構造
+    re.calc_from_log("SP", "-1", f"{args.MaterName}_0_EG_{args.Function}.log")  # -1荷、0価の構造
 
     result_meV = re.calc_reorg_energy()
 
@@ -72,7 +75,7 @@ class ReorgEnergy:
         else:
             self.gaussian_command = 'g16'
         self.EnergyList = []
-        self.Freq_0_EG, self.Freq_1_EG = [], []
+        self.Freq_0_EG, self.Freq_plus1_EG, self.Freq_minus1_EG = [], [], []
 
     def get_band_info(self):
         print("\n結合情報を取得しています...")
@@ -184,10 +187,12 @@ class ReorgEnergy:
         header_data[5] = header_data[5] + "\n"
         header_data[6] = header_data[6] + "\n"
         # Chargeによって分岐
-        if Charge == "0" or Charge == "+0":
+        if Charge == "0" or Charge == "+0" or Charge == "-0":
             header_data[7] = "0 1\n"
         elif Charge == "+1":
             header_data[7] = "1 2\n"
+        elif Charge == "-1":
+            header_data[7] = "-1 2\n"
         # GJFファイルへの書き込み
         with open(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.gjf", "w") as file:
             for formatted_line in header_data:
@@ -253,7 +258,9 @@ class ReorgEnergy:
                         if Charge == "0":
                             self.Freq_0_EG.append([count, element])
                         elif Charge == "+1":
-                            self.Freq_1_EG.append([count, element])
+                            self.Freq_plus1_EG.append([count, element])
+                        elif Charge == "-1":
+                            self.Freq_minus1_EG.append([count, element])
                         else:
                             pass
                         if self.debug:
@@ -321,8 +328,10 @@ class ReorgEnergy:
         print("logファイルを読み込んでいます...")
         self.get_energy("0", "EG")
         self.get_energy("+1", "EG")
+        self.get_energy("-1", "EG")
         self.get_energy("+0", "SP")
         self.get_energy("+1", "SP")
+        self.get_energy("-1", "SP")
 
         energy_0_EG = float(
             next(
@@ -330,22 +339,40 @@ class ReorgEnergy:
                 if item['Charge'] == '0' and item['EG_or_SP'] == 'EG'
             )
         )
-        energy_0_SP = float(
+        energy_plus0_SP = float(
             next(
                 item['Energy'] for item in self.EnergyList
                 if item['Charge'] == '+0' and item['EG_or_SP'] == 'SP'
             )
         )
-        energy_1_EG = float(
+        energy_plus1_EG = float(
             next(
                 item['Energy'] for item in self.EnergyList
                 if item['Charge'] == '+1' and item['EG_or_SP'] == 'EG'
             )
         )
-        energy_1_SP = float(
+        energy_plus1_SP = float(
             next(
                 item['Energy'] for item in self.EnergyList
                 if item['Charge'] == '+1' and item['EG_or_SP'] == 'SP'
+            )
+        )
+        energy_minus0_SP = float(
+            next(
+                item['Energy'] for item in self.EnergyList
+                if item['Charge'] == '-0' and item['EG_or_SP'] == 'SP'
+            )
+        )
+        energy_minus1_EG = float(
+            next(
+                item['Energy'] for item in self.EnergyList
+                if item['Charge'] == '-1' and item['EG_or_SP'] == 'EG'
+            )
+        )
+        energy_minus1_SP = float(
+            next(
+                item['Energy'] for item in self.EnergyList
+                if item['Charge'] == '-1' and item['EG_or_SP'] == 'SP'
             )
         )
 
@@ -366,7 +393,7 @@ class ReorgEnergy:
         print("-" * len(header_row))
 
         # 式に従って計算
-        result_Hartree = ((energy_0_SP - energy_0_EG) + (energy_1_SP - energy_1_EG))
+        result_Hartree = ((energy_plus0_SP - energy_0_EG) + (energy_plus1_SP - energy_plus1_EG))
         result_meV = self.hartree_to_meV(result_Hartree)
 
         print("logファイルを読み込みました。")
@@ -374,8 +401,8 @@ class ReorgEnergy:
         # 結果の表示
         print("\n-- Reorganization Energy --")
 
-        print(f"λ1 (0_SP - 0_EG): {round(energy_0_SP - energy_0_EG, 8)}[Hartree]")
-        print(f"λ2 (1_SP - 1_EG): {round(energy_1_SP - energy_1_EG, 8)}[Hartree]")
+        print(f"λ1 (0_SP - 0_EG): {round(energy_plus0_SP - energy_0_EG, 8)}[Hartree]")
+        print(f"λ2 (1_SP - 1_EG): {round(energy_plus1_SP - energy_plus1_EG, 8)}[Hartree]")
         print("再配置エネルギー[Hartree]:", round(result_Hartree, 8), "[Hartree]")
         print("再配置エネルギー[meV]:", round(result_meV, 8), "[meV]")
 
@@ -432,7 +459,8 @@ class ReorgEnergy:
         )
 
         min_freq_0_EG = min([freq[1] for freq in self.Freq_0_EG])
-        min_freq_1_EG = min([freq[1] for freq in self.Freq_1_EG])
+        min_freq_plus1_EG = min([freq[1] for freq in self.Freq_plus1_EG])
+        min_freq_minus1_EG = min([freq[1] for freq in self.Freq_minus1_EG])
 
         with open(f"{self.MaterName}_ReorgEnergy_{self.Function_Name}.txt", "w") as file:
             file.write(f"Execution date: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -452,7 +480,8 @@ class ReorgEnergy:
             file.write(f"λ2 (1_SP - 1_EG): {round(energy_1_SP - energy_1_EG, 8)} [Hartree]\n")
             file.write(f"\n")
             file.write(f"Minimum Frequency of 0_EG: {min_freq_0_EG}\n")
-            file.write(f"Minimum Frequency of 1_EG: {min_freq_1_EG}\n")
+            file.write(f"Minimum Frequency of +1_EG: {min_freq_plus1_EG}\n")
+            file.write(f"Minimum Frequency of -1_EG: {min_freq_minus1_EG}\n")
 
         print("結果を保存しました。")
         return None
