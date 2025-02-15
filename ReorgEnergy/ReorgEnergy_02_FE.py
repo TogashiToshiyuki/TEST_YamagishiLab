@@ -70,7 +70,10 @@ class ReorgEnergy:
         self._ReorgEnergy = "ReorgEnergy"
         self.args = args
         self.before = before
-        self.MaterName = args.MaterName[:-4]
+        if os.path.exists(f"{args.MaterName}") and args.MaterName.endswith(".gjf"):
+            self.MaterName = args.MaterName[:-4]
+        else:
+            self.MaterName = args.MaterName
         self.debug = args.debug
         self.function = args.function
         self.messages, self.HelpList = [], []
