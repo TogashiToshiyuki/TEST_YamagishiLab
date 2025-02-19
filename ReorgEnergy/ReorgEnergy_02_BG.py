@@ -280,7 +280,6 @@ class ReorgEnergy:
                 sys.stderr.write(f"{message}\n")
             print(f"{Color.RED}ログファイルを確認してください。{Color.RESET}")
             print(f"{Color.RED}プログラムを終了します。{Color.RESET}")
-            sys.exit(1)
         else:
             print("負の振動数は見つかりませんでした。")
         return None
@@ -326,11 +325,13 @@ class ReorgEnergy:
         return formatted_data
 
     def calc_reorg_energy(self):
+        HelpList = []
         print("logファイルを読み込んでいます...")
         self.get_energy("0", "EG")
         self.get_energy("+1", "EG")
         self.get_energy("-1", "EG")
         self.get_energy("+0", "SP")
+        self.get_energy("-0", "SP")
         self.get_energy("+1", "SP")
         self.get_energy("-1", "SP")
 
@@ -394,20 +395,65 @@ class ReorgEnergy:
         print("-" * len(header_row))
 
         # 式に従って計算
-        result_Hartree = ((energy_plus0_SP - energy_0_EG) + (energy_plus1_SP - energy_plus1_EG))
-        result_meV = self.hartree_to_meV(result_Hartree)
+        anion_lambda1 = energy_plus0_SP - energy_0_EG
+        anion_lambda2 = energy_plus1_SP - energy_plus1_EG
+        result_Hartree_anion = (anion_lambda1 + anion_lambda2)
+        result_meV_anion = self.hartree_to_meV(result_Hartree_anion)
+        if anion_lambda1 < 0 or anion_lambda2 < 0:
+            print(f"{Color.RED}minus value of λ1 or/and λ2 is found in calculations for anion.{Color.RESET}")
+            print(f"anion λ1: {anion_lambda1}")
+            print(f"anion λ2: {anion_lambda2}")
+            print(f"ReorgEnergy [Hartree]: {result_Hartree_anion}")
+            print(f"ReorgEnergy [meV]: {result_meV_anion}")
+
+            sys.stderr.write(f"{Color.RED}minus value of λ1 or/and λ2 is found "
+                             f"in calculations for anion.{Color.RESET}\n")
+            sys.stderr.write(f"anion λ1: {anion_lambda1}\n")
+            sys.stderr.write(f"anion λ2: {anion_lambda2}\n")
+            sys.stderr.write(f"ReorgEnergy [Hartree]: {result_Hartree_anion}\n")
+            sys.stderr.write(f"ReorgEnergy [meV]: {result_meV_anion}\n")
+            HelpList.append(True)
+
+        cation_lambda1 = energy_minus0_SP - energy_0_EG
+        cation_lambda2 = energy_minus1_SP - energy_minus1_EG
+        result_Hartree_cation = (cation_lambda1 + cation_lambda2)
+        result_meV_cation = self.hartree_to_meV(result_Hartree_cation)
+        if cation_lambda1 < 0 or cation_lambda2 < 0:
+            print(f"{Color.RED}minus value of λ1 or/and λ2 is found in calculations for cation.{Color.RESET}")
+            print(f"cation λ1: {cation_lambda1}")
+            print(f"cation λ2: {cation_lambda2}")
+            print(f"ReorgEnergy [Hartree]: {result_Hartree_cation}")
+            print(f"ReorgEnergy [meV]: {result_meV_cation}")
+
+            sys.stderr.write(f"{Color.RED}minus value of λ1 or/and λ2 is found "
+                             f"in calculations for cation.{Color.RESET}\n")
+            sys.stderr.write(f"cation λ1: {cation_lambda1}\n")
+            sys.stderr.write(f"cation λ2: {cation_lambda2}\n")
+            sys.stderr.write(f"ReorgEnergy [Hartree]: {result_Hartree_cation}\n")
+            sys.stderr.write(f"ReorgEnergy [meV]: {result_meV_cation}\n")
+            HelpList.append(True)
+
+        if True in HelpList:
+            sys.exit(1)
 
         print("logファイルを読み込みました。")
 
         # 結果の表示
         print("\n-- Reorganization Energy --")
 
-        print(f"λ1 (0_SP - 0_EG): {round(energy_plus0_SP - energy_0_EG, 8)}[Hartree]")
-        print(f"λ2 (1_SP - 1_EG): {round(energy_plus1_SP - energy_plus1_EG, 8)}[Hartree]")
-        print("再配置エネルギー[Hartree]:", round(result_Hartree, 8), "[Hartree]")
-        print("再配置エネルギー[meV]:", round(result_meV, 8), "[meV]")
+        print("Anion:")
+        print(f"λ1 (+0_SP - 0_EG): {round(energy_plus0_SP - energy_0_EG, 8)}[Hartree]")
+        print(f"λ2 (+1_SP - +1_EG): {round(energy_plus1_SP - energy_plus1_EG, 8)}[Hartree]")
+        print("再配置エネルギー[Hartree]:", round(result_Hartree_anion, 8), "[Hartree]")
+        print("再配置エネルギー[meV]:", round(result_meV_anion, 8), "[meV]")
 
-        return result_meV
+        print("\nCation:")
+        print(f"λ1 (-0_SP - 0_EG): {round(energy_minus0_SP - energy_0_EG, 8)}[Hartree]")
+        print(f"λ2 (-1_SP - -1_EG): {round(energy_minus1_SP - energy_minus1_EG, 8)}[Hartree]")
+        print("再配置エネルギー[Hartree]:", round(result_Hartree_cation, 8), "[Hartree]")
+        print("再配置エネルギー[meV]:", round(result_meV_cation, 8), "[meV]")
+
+        return [result_meV_anion, result_meV_cation]
 
     def get_energy(self, Charge, EG_or_SP):
         with open(f"{self.MaterName}_{Charge}_{EG_or_SP}_{self.Function_Name}.log", "r") as file:
@@ -440,22 +486,40 @@ class ReorgEnergy:
                 if item['Charge'] == '0' and item['EG_or_SP'] == 'EG'
             )
         )
-        energy_0_SP = float(
+        energy_plus0_SP = float(
             next(
                 item['Energy'] for item in self.EnergyList
                 if item['Charge'] == '+0' and item['EG_or_SP'] == 'SP'
             )
         )
-        energy_1_EG = float(
+        energy_plus1_EG = float(
             next(
                 item['Energy'] for item in self.EnergyList
                 if item['Charge'] == '+1' and item['EG_or_SP'] == 'EG'
             )
         )
-        energy_1_SP = float(
+        energy_plus1_SP = float(
             next(
                 item['Energy'] for item in self.EnergyList
                 if item['Charge'] == '+1' and item['EG_or_SP'] == 'SP'
+            )
+        )
+        energy_minus0_SP = float(
+            next(
+                item['Energy'] for item in self.EnergyList
+                if item['Charge'] == '-0' and item['EG_or_SP'] == 'SP'
+            )
+        )
+        energy_minus1_EG = float(
+            next(
+                item['Energy'] for item in self.EnergyList
+                if item['Charge'] == '-1' and item['EG_or_SP'] == 'EG'
+            )
+        )
+        energy_minus1_SP = float(
+            next(
+                item['Energy'] for item in self.EnergyList
+                if item['Charge'] == '-1' and item['EG_or_SP'] == 'SP'
             )
         )
 
@@ -468,7 +532,9 @@ class ReorgEnergy:
             file.write(f"Material Name: {self.MaterName}\n")
             file.write(f"Function: {self.function}\n")
             file.write(f"\n")
-            file.write(f"Reorganization Energy: {round(result_meV, 8)} [meV]\n")
+            file.write(f"Reorganization Energy\n")
+            file.write(f"Anion: {round(result_meV[0], 8)} [meV]\n")
+            file.write(f"Cation: {round(result_meV[1], 8)} [meV]\n")
 
             file.write("\n" + "=" * 40 + "\n")
             file.write(f"{'Charge':<10}{'EG/SP':<10}{'Energy [Hartree]':<20}\n")
@@ -477,8 +543,13 @@ class ReorgEnergy:
                 file.write(f"{item['Charge']:<10}{item['EG_or_SP']:<10}{item['Energy']:<20}\n")
             file.write("=" * 40 + "\n")
 
-            file.write(f"λ1 (0_SP - 0_EG): {round(energy_0_SP - energy_0_EG, 8)} [Hartree]\n")
-            file.write(f"λ2 (1_SP - 1_EG): {round(energy_1_SP - energy_1_EG, 8)} [Hartree]\n")
+            file.write(f"-Anion-\n")
+            file.write(f"λ1 (-0_SP - 0_EG): {round(energy_minus0_SP - energy_0_EG, 8)} [Hartree]\n")
+            file.write(f"λ2 (-1_SP - -1_EG): {round(energy_minus1_SP - energy_minus1_EG, 8)} [Hartree]\n")
+            file.write(f"\n")
+            file.write(f"-Cation-\n")
+            file.write(f"λ1 (+0_SP - 0_EG): {round(energy_plus0_SP - energy_0_EG, 8)} [Hartree]\n")
+            file.write(f"λ2 (+1_SP - +1_EG): {round(energy_plus1_SP - energy_plus1_EG, 8)} [Hartree]\n")
             file.write(f"\n")
             file.write(f"Minimum Frequency of 0_EG: {min_freq_0_EG}\n")
             file.write(f"Minimum Frequency of +1_EG: {min_freq_plus1_EG}\n")
