@@ -357,15 +357,29 @@ class ReorgEnergy:
                                  f"\t>>> Please check the calculation conditions.")
             self.help_check_exit()
         else:
-            print(f"\t>>> {Color.GREEN}Calculations are finished successfully!!{Color.RESET}")
+            try:
+                with open(f"{self.MaterName}_ReorgEnergy_{self.basis_function[1]}.txt", "r") as file:
+                    print(f"\t>>> {Color.GREEN}Calculations are finished successfully!!{Color.RESET}")
+                    print(f"{Color.GREEN}Log file is displayed.{Color.RESET}")
+                    print(file.read())
 
-        print(f"{Color.GREEN}Log file is displayed.{Color.RESET}")
-        with open(f"{self.MaterName}_ReorgEnergy_{self.basis_function[1]}.txt", "r") as file:
-            print(file.read())
+                    if not self.debug:
+                        self.rmWildCards("*.chk")
+                        self.rmWildCards("*.sh*")
+            except FileNotFoundError:
+                print(f"\t>>> {Color.RED}Calculations are not finished successfully.{Color.RESET}\n"
+                      f"\t>>> Please check the calculation conditions.\n")
 
-        if not self.debug:
-            self.rmWildCards("*.chk")
-            self.rmWildCards("*.sh*")
+                print("********************************************************************************\n")
+                with open(f"Reorg-{self.Operator}-{self.MaterName}-{self.basis_function[1]}.log", "r") as file:
+                    print(file.read())
+
+                print("********************************************************************************\n")
+                self.HelpList.append(True)
+                self.messages.append(f"\n\t>>> The calculation was not successful.\n"
+                                     f"\t>>> Please check the calculation conditions.")
+                self.help_check_exit()
+
         return None
 
     @staticmethod
