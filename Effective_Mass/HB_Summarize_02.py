@@ -2057,7 +2057,7 @@ class SummarySlide:
         angles = [line.split()[0] for line in lines]
 
         # linesの各行の４番目の要素(エネルギー)を取得する
-        band_energy = [line.split()[3] for line in lines]
+        band_energy = [float(line.split()[3]) for line in lines]
         if self.debug:
             print(f"\n\t\t>>> Getting {Color.GREEN}p3{Color.RESET} Band Energies...")
             print(f"\t\tFile Name: {self.MaterName}_{self.Tilt_Angle}_3molp3_results/"
@@ -2135,7 +2135,7 @@ class SummarySlide:
         self.add_title(slide)
 
         # もしpositionが1,2ならB12構造、それ以外ならB3構造
-        if position == 1 or position == 2:
+        if position == 12:
             Structure = "B12"
         else:
             Structure = "B3"
