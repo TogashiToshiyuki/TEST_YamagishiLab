@@ -1,3 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# -----------------------------------------------------------------------------
+# Copyright (c) 2025 Toshiyuki Togashi.
+# Yamagishi Laboratory, NIT Toyama College.
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+# -----------------------------------------------------------------------------
+
 import argparse
 import datetime
 import functools
