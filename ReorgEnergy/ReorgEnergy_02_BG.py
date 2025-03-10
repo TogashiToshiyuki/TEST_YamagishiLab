@@ -395,8 +395,8 @@ class ReorgEnergy:
         print("-" * len(header_row))
 
         # 式に従って計算
-        anion_lambda1 = energy_plus0_SP - energy_0_EG
-        anion_lambda2 = energy_plus1_SP - energy_plus1_EG
+        anion_lambda1 = energy_minus0_SP - energy_0_EG
+        anion_lambda2 = energy_minus1_SP - energy_minus1_EG
         result_Hartree_anion = (anion_lambda1 + anion_lambda2)
         result_meV_anion = self.hartree_to_meV(result_Hartree_anion)
         if anion_lambda1 < 0 or anion_lambda2 < 0:
@@ -414,8 +414,8 @@ class ReorgEnergy:
             sys.stderr.write(f"ReorgEnergy [meV]: {result_meV_anion}\n")
             HelpList.append(True)
 
-        cation_lambda1 = energy_minus0_SP - energy_0_EG
-        cation_lambda2 = energy_minus1_SP - energy_minus1_EG
+        cation_lambda1 = energy_plus0_SP - energy_0_EG
+        cation_lambda2 = energy_plus1_SP - energy_plus1_EG
         result_Hartree_cation = (cation_lambda1 + cation_lambda2)
         result_meV_cation = self.hartree_to_meV(result_Hartree_cation)
         if cation_lambda1 < 0 or cation_lambda2 < 0:
